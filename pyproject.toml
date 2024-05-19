@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "llm-zoomcamp"
 version = "0.1.0"
-description = ""
+description = "LLM Zoomcamp course repo"
 authors = ["ykhvainitski <yauheni.khvainitski@playrix.com>"]
 readme = "README.md"
 
