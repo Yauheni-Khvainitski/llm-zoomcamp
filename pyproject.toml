@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "LLM Zoomcamp course repo"
 authors = ["Yauheni-Khvainitski <euheniy.khvoinitski@gmail.com>"]
 readme = "README.md"
+repository = "https://github.com/Yauheni-Khvainitski/llm-zoomcamp.git"
 
 [tool.poetry.dependencies]
 python = "^3.10"
