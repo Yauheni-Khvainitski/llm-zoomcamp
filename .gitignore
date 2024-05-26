@@ -3,6 +3,5 @@
 *.env
 
 **/.ipynb_checkpoints/**
-*.ipynb
 
 documents.json

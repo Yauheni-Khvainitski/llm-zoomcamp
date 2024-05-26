@@ -9,11 +9,15 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
+elasticsearch = "^8.13.2"
+tqdm = "^4.66.4"
+ipywidgets = "^8.1.2"
+openai = "^1.30.3"
+python-dotenv = "^1.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
 notebook = "7.1.2"
-python-dotenv = "^1.0.1"
 
 [build-system]
 requires = ["poetry-core"]
