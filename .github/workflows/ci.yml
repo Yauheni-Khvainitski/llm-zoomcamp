@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, module-* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 2.1.2
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+    
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction --no-root
+    
+    - name: Check Poetry configuration
+      run: |
+        poetry check
+        poetry show
+    
+    - name: Lint with flake8 (basic syntax check)
+      run: |
+        poetry add --group dev flake8 --dry-run || poetry add --group dev flake8
+        poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv,.git,__pycache__,.pytest_cache
+        poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv,.git,__pycache__,.pytest_cache
+    
+    - name: Check Python syntax
+      run: |
+        python_files=$(find . -name "*.py" -not -path "./.venv/*" -not -path "./.git/*" -not -path "./__pycache__/*")
+        if [ -n "$python_files" ]; then
+          poetry run python -m py_compile $python_files
+          echo "✅ Python syntax check passed"
+        else
+          echo "ℹ️  No Python files found to check"
+        fi
+    
+    - name: Test import of main dependencies
+      run: |
+        poetry run python -c "import elasticsearch, tqdm, openai, dotenv; print('✅ All main dependencies imported successfully')"

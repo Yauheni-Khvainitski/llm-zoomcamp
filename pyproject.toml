@@ -1,23 +1,29 @@
-[tool.poetry]
+[project]
 name = "llm-zoomcamp"
 version = "0.1.0"
 description = "LLM Zoomcamp course repo"
-authors = ["Yauheni-Khvainitski <euheniy.khvoinitski@gmail.com>"]
+authors = [
+    {name = "Yauheni-Khvainitski", email = "euheniy.khvoinitski@gmail.com"}
+]
 readme = "README.md"
+requires-python = "^3.10"
+dependencies = [
+    "elasticsearch>=9.0.2",
+    "tqdm>=4.67.1",
+    "ipywidgets>=8.1.7",
+    "openai>=1.84.0",
+    "python-dotenv>=1.1.0"
+]
+
+[project.urls]
 repository = "https://github.com/Yauheni-Khvainitski/llm-zoomcamp.git"
+
+[tool.poetry]
 package-mode = false
 
-[tool.poetry.dependencies]
-python = "^3.10"
-elasticsearch = "^8.13.2"
-tqdm = "^4.66.4"
-ipywidgets = "^8.1.2"
-openai = "^1.30.3"
-python-dotenv = "^1.0.1"
-
-
 [tool.poetry.group.dev.dependencies]
-notebook = "7.1.2"
+notebook = "7.4.3"
+flake8 = "7.2.0"
 
 [build-system]
 requires = ["poetry-core"]
