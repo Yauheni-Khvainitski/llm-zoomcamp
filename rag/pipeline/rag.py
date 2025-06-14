@@ -7,7 +7,7 @@ Orchestrates document loading, indexing, searching, and response generation.
 import logging
 from typing import Any, Dict, List, Optional
 
-from ..config import ELASTICSEARCH_URL, DEFAULT_INDEX_NAME
+from ..config import DEFAULT_INDEX_NAME, ELASTICSEARCH_URL
 from ..data.loader import DocumentLoader
 from ..formatting.context import ContextFormatter
 from ..llm.openai_client import OpenAIClient
@@ -22,7 +22,11 @@ class RAGPipeline:
     """Main RAG pipeline that orchestrates all components."""
 
     def __init__(
-        self, es_url: str = ELASTICSEARCH_URL, index_name: str = DEFAULT_INDEX_NAME, openai_api_key: str = None, openai_model: str = None
+        self,
+        es_url: str = ELASTICSEARCH_URL,
+        index_name: str = DEFAULT_INDEX_NAME,
+        openai_api_key: str = None,
+        openai_model: str = None,
     ):
         """
         Initialize the RAG pipeline.
