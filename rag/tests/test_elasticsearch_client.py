@@ -5,7 +5,6 @@ Tests for the ElasticsearchClient class.
 import unittest
 from unittest.mock import Mock, patch
 
-
 from ..search.elasticsearch_client import ElasticsearchClient
 
 
