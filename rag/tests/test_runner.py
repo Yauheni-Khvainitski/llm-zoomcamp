@@ -7,7 +7,6 @@ This module provides functionality to run all tests with detailed reporting.
 import sys
 import time
 import unittest
-from io import StringIO
 
 
 def run_all_tests(verbosity=2):

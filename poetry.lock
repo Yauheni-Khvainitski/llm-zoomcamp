@@ -203,6 +203,22 @@ files = [
 cryptography = "*"
 
 [[package]]
+name = "autoflake"
+version = "2.3.1"
+description = "Removes unused imports and unused variables"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "autoflake-2.3.1-py3-none-any.whl", hash = "sha256:3ae7495db9084b7b32818b4140e6dc4fc280b712fb414f5b8fe57b0a8e85a840"},
+    {file = "autoflake-2.3.1.tar.gz", hash = "sha256:c98b75dc5b0a86459c4f01a1d32ac7eb4338ec4317a4469515ff1e687ecd909e"},
+]
+
+[package.dependencies]
+pyflakes = ">=3.0.0"
+tomli = {version = ">=2.0.1", markers = "python_version < \"3.11\""}
+
+[[package]]
 name = "babel"
 version = "2.17.0"
 description = "Internationalization utilities"
@@ -4002,4 +4018,4 @@ tokens = ["tiktoken"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "bfb58626199c29fc2712794b8563245e70cacf5eeadc12535998ca55c4eaec3f"
+content-hash = "0b4f05ae6ac4d9e1bb11262c882a43e3a6e556123913383cf8fa0b392a0b5acc"

@@ -5,7 +5,6 @@ Handles communication with OpenAI's API for generating responses.
 """
 
 import logging
-import os
 from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv

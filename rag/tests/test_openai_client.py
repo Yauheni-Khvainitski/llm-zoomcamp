@@ -4,7 +4,7 @@ Tests for the OpenAIClient class.
 
 import os
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from ..llm.openai_client import OpenAIClient
 
@@ -68,7 +68,7 @@ class TestOpenAIClient(unittest.TestCase):
         mock_openai.return_value = mock_client
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "env-key"}):
-            client = OpenAIClient(load_env=True)
+            client = OpenAIClient(load_env=True)  # noqa: F841
 
         mock_load_dotenv.assert_called_once()
 
@@ -82,7 +82,7 @@ class TestOpenAIClient(unittest.TestCase):
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "env-key"}):
             # Should not raise exception
-            client = OpenAIClient(load_env=True)
+            client = OpenAIClient(load_env=True)  # noqa: F841
 
     @patch("rag.llm.openai_client.OpenAI")
     def test_get_response_success(self, mock_openai):

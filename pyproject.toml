@@ -67,6 +67,7 @@ pylint = ">=3.3.1"
 bandit = ">=1.8.0"
 safety = ">=3.2.11"
 pydocstyle = ">=6.3.0"
+autoflake = "^2.3.1"
 
 [tool.poetry.group.jupyter.dependencies]
 jupyter = ">=1.1.1"

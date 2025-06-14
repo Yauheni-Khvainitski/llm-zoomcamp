@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, List, Union
 
 from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import BadRequestError, NotFoundError
+from elasticsearch.exceptions import NotFoundError
 from tqdm.auto import tqdm
 
 from ..config import DEFAULT_INDEX_NAME, ELASTICSEARCH_URL, INDEX_SETTINGS

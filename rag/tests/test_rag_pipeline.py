@@ -73,7 +73,7 @@ class TestRAGPipeline(unittest.TestCase):
             "openai_model": "gpt-3.5-turbo",
         }
 
-        pipeline = RAGPipeline(**custom_config)
+        RAGPipeline(**custom_config)
 
         # Verify custom config was used
         mock_es_client.assert_called_with("http://custom:9200", "custom-index")

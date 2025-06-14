@@ -5,7 +5,6 @@ Contains comprehensive tests for query building functionality.
 """
 
 import unittest
-from typing import Any, Dict
 
 from ..models.course import Course
 from ..search.query_builder import QueryBuilder
