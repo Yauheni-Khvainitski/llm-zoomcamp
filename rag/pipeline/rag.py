@@ -1,0 +1,296 @@
+"""
+Main RAG pipeline for the system.
+
+Orchestrates document loading, indexing, searching, and response generation.
+"""
+
+import logging
+from typing import Any, Dict, List, Optional
+
+from ..config import ELASTICSEARCH_URL, DEFAULT_INDEX_NAME
+from ..data.loader import DocumentLoader
+from ..formatting.context import ContextFormatter
+from ..llm.openai_client import OpenAIClient
+from ..models.course import Course
+from ..search.elasticsearch_client import ElasticsearchClient
+from ..search.query_builder import QueryBuilder
+
+logger = logging.getLogger(__name__)
+
+
+class RAGPipeline:
+    """Main RAG pipeline that orchestrates all components."""
+
+    def __init__(
+        self, es_url: str = ELASTICSEARCH_URL, index_name: str = DEFAULT_INDEX_NAME, openai_api_key: str = None, openai_model: str = None
+    ):
+        """
+        Initialize the RAG pipeline.
+
+        Args:
+            es_url: Elasticsearch URL
+            index_name: Elasticsearch index name
+            openai_api_key: OpenAI API key
+            openai_model: OpenAI model to use
+        """
+        self.index_name = index_name
+
+        # Initialize components
+        self.document_loader = DocumentLoader()
+        self.es_client = ElasticsearchClient(es_url=es_url, index_name=index_name)
+        self.query_builder = QueryBuilder()
+        self.context_formatter = ContextFormatter()
+        self.llm_client = OpenAIClient(api_key=openai_api_key, model=openai_model)
+
+        logger.info("RAG pipeline initialized")
+
+    def setup_index(self, load_documents: bool = True, delete_existing: bool = True) -> Dict[str, Any]:
+        """
+        Set up the Elasticsearch index and optionally load documents.
+
+        Args:
+            load_documents: Whether to load and index documents
+            delete_existing: Whether to delete existing index
+
+        Returns:
+            Dictionary with setup results
+        """
+        logger.info("Setting up Elasticsearch index...")
+
+        # Create the index
+        self.es_client.create_index(delete_if_exists=delete_existing)
+
+        results = {"index_created": True, "documents_loaded": 0, "documents_indexed": 0}
+
+        if load_documents:
+            # Load documents
+            documents = self.document_loader.load_documents()
+            results["documents_loaded"] = len(documents)
+
+            # Index documents
+            indexed_count = self.es_client.index_documents(documents)
+            results["documents_indexed"] = indexed_count
+
+            logger.info(f"Setup complete: {indexed_count} documents indexed")
+
+        return results
+
+    def search(
+        self,
+        question: str,
+        course_filter: Optional[Course] = None,
+        num_results: int = 5,
+        boost: int = 4,
+        return_raw: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for relevant documents.
+
+        Args:
+            question: The question to search for
+            course_filter: Optional course filter
+            num_results: Number of results to return
+            boost: Boost factor for question field
+            return_raw: Whether to return raw Elasticsearch response
+
+        Returns:
+            List of relevant documents
+        """
+        # Build the search query
+        query = self.query_builder.build_search_query(
+            question=question, course_filter=course_filter, num_results=num_results, boost=boost
+        )
+
+        # Execute the search
+        results = self.es_client.search_documents(query, return_raw=return_raw)
+
+        logger.debug(f"Search returned {len(results) if not return_raw else len(results['hits']['hits'])} results")
+        return results
+
+    def generate_response(
+        self, question: str, documents: List[Dict[str, Any]], model: str = None, include_context: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Generate a response using the LLM.
+
+        Args:
+            question: The user's question
+            documents: Relevant documents to use as context
+            model: LLM model to use
+            include_context: Whether to include formatted context in response
+
+        Returns:
+            Dictionary with response and metadata
+        """
+        # Format the context
+        context = self.context_formatter.format_context(documents)
+
+        # Build the prompt
+        prompt = self.context_formatter.build_prompt(question, context)
+
+        # Generate response
+        response = self.llm_client.get_response(prompt, model=model)
+
+        result = {"response": response, "num_documents": len(documents), "prompt_length": len(prompt)}
+
+        if include_context:
+            result["context"] = context
+            result["prompt"] = prompt
+
+        return result
+
+    def ask(
+        self,
+        question: str,
+        course_filter: Optional[Course] = None,
+        num_results: int = 5,
+        boost: int = 4,
+        model: str = None,
+        debug: bool = False,
+    ) -> str:
+        """
+        Ask a question and get a response (end-to-end RAG).
+
+        Args:
+            question: The question to ask
+            course_filter: Optional course filter
+            num_results: Number of search results to use
+            boost: Boost factor for question field
+            model: LLM model to use
+            debug: Whether to print debug information
+
+        Returns:
+            The generated response
+        """
+        try:
+            # Search for relevant documents
+            documents = self.search(question=question, course_filter=course_filter, num_results=num_results, boost=boost)
+
+            # Generate response
+            result = self.generate_response(question=question, documents=documents, model=model, include_context=debug)
+
+            if debug:
+                self._print_debug_info(question, documents, result, course_filter)
+
+            return result["response"]
+
+        except Exception as e:
+            logger.error(f"Error in RAG pipeline: {e}")
+            raise
+
+    def ask_with_details(
+        self, question: str, course_filter: Optional[Course] = None, num_results: int = 5, boost: int = 4, model: str = None
+    ) -> Dict[str, Any]:
+        """
+        Ask a question and get detailed response information.
+
+        Args:
+            question: The question to ask
+            course_filter: Optional course filter
+            num_results: Number of search results to use
+            boost: Boost factor for question field
+            model: LLM model to use
+
+        Returns:
+            Dictionary with response and all details
+        """
+        # Search for relevant documents
+        search_raw = self.search(
+            question=question, course_filter=course_filter, num_results=num_results, boost=boost, return_raw=True
+        )
+
+        documents = [hit["_source"] for hit in search_raw["hits"]["hits"]]
+
+        # Generate response with context
+        response_result = self.generate_response(question=question, documents=documents, model=model, include_context=True)
+
+        return {
+            "question": question,
+            "response": response_result["response"],
+            "search_results": {
+                "total_hits": search_raw["hits"]["total"]["value"],
+                "max_score": search_raw["hits"]["max_score"],
+                "documents": documents,
+            },
+            "context": response_result["context"],
+            "prompt": response_result["prompt"],
+            "metadata": {
+                "course_filter": course_filter.value if course_filter else None,
+                "num_results": num_results,
+                "boost": boost,
+                "model": model or self.llm_client.model,
+            },
+        }
+
+    def _print_debug_info(
+        self, question: str, documents: List[Dict[str, Any]], result: Dict[str, Any], course_filter: Optional[Course]
+    ) -> None:
+        """Print debug information."""
+        print(f"Question: {question}")
+        print(f"Course filter: {course_filter.value if course_filter else 'None'}")
+        print(f"Number of documents: {len(documents)}")
+        print(f"Prompt length: {result['prompt_length']}")
+        print("\n" + "=" * 50)
+        print("CONTEXT:")
+        print(result.get("context", "N/A"))
+        print("\n" + "=" * 50)
+        print("PROMPT:")
+        print(result.get("prompt", "N/A"))
+        print("\n" + "=" * 50)
+        print("RESPONSE:")
+        print(result["response"])
+        print("=" * 50)
+
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about the RAG system.
+
+        Returns:
+            Dictionary with system statistics
+        """
+        try:
+            doc_count = self.es_client.count_documents()
+            doc_stats = self.document_loader.get_document_stats()
+
+            return {
+                "elasticsearch": {
+                    "index_name": self.index_name,
+                    "document_count": doc_count,
+                    "index_exists": self.es_client.index_exists(),
+                },
+                "documents": doc_stats,
+                "llm": {"model": self.llm_client.model},
+            }
+        except Exception as e:
+            logger.error(f"Error getting stats: {e}")
+            return {"error": str(e)}
+
+    def health_check(self) -> Dict[str, bool]:
+        """
+        Perform a health check on all components.
+
+        Returns:
+            Dictionary with health status of each component
+        """
+        health = {}
+
+        try:
+            # Check Elasticsearch
+            health["elasticsearch"] = self.es_client.index_exists()
+        except Exception:
+            health["elasticsearch"] = False
+
+        try:
+            # Check if documents are loaded
+            health["documents"] = len(self.document_loader.documents) > 0
+        except Exception:
+            health["documents"] = False
+
+        try:
+            # Check OpenAI (basic check)
+            health["openai"] = self.llm_client.api_key is not None
+        except Exception:
+            health["openai"] = False
+
+        health["overall"] = all(health.values())
+        return health
