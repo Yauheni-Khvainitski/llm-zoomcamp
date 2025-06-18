@@ -5,7 +5,7 @@ A comprehensive RAG system for Q&A over course documents using Elasticsearch and
 """
 
 __version__ = "1.0.0"
-__author__ = "DataTalks.Club"
+__author__ = "Yaheni Khvainitski"
 
 from .models.course import Course
 from .pipeline.rag import RAGPipeline

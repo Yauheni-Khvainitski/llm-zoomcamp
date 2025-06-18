@@ -11,7 +11,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
 from tqdm.auto import tqdm
 
-from ..config import DEFAULT_INDEX_NAME, ELASTICSEARCH_URL, INDEX_SETTINGS
+from ..config import ELASTICSEARCH_URL, INDEX_SETTINGS, DEFAULT_INDEX_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +19,19 @@ logger = logging.getLogger(__name__)
 class ElasticsearchClient:
     """Elasticsearch client for document indexing and searching."""
 
-    def __init__(self, es_url: str = ELASTICSEARCH_URL, index_name: str = DEFAULT_INDEX_NAME):
+    def __init__(self, es_url: str = ELASTICSEARCH_URL):
         """
         Initialize the Elasticsearch client.
 
         Args:
             es_url: Elasticsearch URL
-            index_name: Default index name
+            
+        Warning:
+            Be careful with index_name - all operations will target this index by default!
+            Consider using test-specific names for development/testing.
         """
         self.es_url = es_url
-        self.index_name = index_name
+        
         self.es = Elasticsearch(hosts=es_url)
 
         # Test connection
@@ -48,22 +51,34 @@ class ElasticsearchClient:
         """
         return self.es
 
-    def create_index(self, index_name: str = None, settings: Dict[str, Any] = None, delete_if_exists: bool = True) -> bool:
+    def create_index(self, index_name: str = None, settings: Dict[str, Any] = None, delete_if_exists: bool = False) -> bool:
         """
         Create an Elasticsearch index.
 
         Args:
             index_name: Name of the index to create
             settings: Index settings and mappings
-            delete_if_exists: Whether to delete existing index
+            delete_if_exists: Whether to delete existing index (DANGEROUS - will delete all data!)
 
         Returns:
             True if index was created successfully
+            
+        Raises:
+            Exception: If index already exists and delete_if_exists is False
         """
         if index_name is None:
-            index_name = self.index_name
+            index_name = DEFAULT_INDEX_NAME
         if settings is None:
             settings = INDEX_SETTINGS
+
+        # Safety check: warn about destructive operation
+        if delete_if_exists and self.index_exists(index_name):
+            logger.warning(f"⚠️  DESTRUCTIVE OPERATION: About to delete existing index '{index_name}' and all its data!")
+            
+        # Check if index already exists
+        if self.index_exists(index_name) and not delete_if_exists:
+            logger.info(f"Index '{index_name}' already exists. Use delete_if_exists=True to overwrite.")
+            return True
 
         # Delete existing index if requested
         if delete_if_exists:
@@ -88,7 +103,7 @@ class ElasticsearchClient:
             True if index was deleted or didn't exist
         """
         if index_name is None:
-            index_name = self.index_name
+            index_name = DEFAULT_INDEX_NAME
 
         try:
             self.es.indices.delete(index=index_name)
@@ -114,7 +129,7 @@ class ElasticsearchClient:
             True if document was indexed successfully
         """
         if index_name is None:
-            index_name = self.index_name
+            index_name = DEFAULT_INDEX_NAME
         if doc_id is None:
             doc_id = document.get("doc_id")
 
@@ -138,7 +153,7 @@ class ElasticsearchClient:
             Number of successfully indexed documents
         """
         if index_name is None:
-            index_name = self.index_name
+            index_name = DEFAULT_INDEX_NAME
 
         indexed_count = 0
 
@@ -170,7 +185,7 @@ class ElasticsearchClient:
             List of documents or raw response
         """
         if index_name is None:
-            index_name = self.index_name
+            index_name = DEFAULT_INDEX_NAME
 
         try:
             response = self.es.search(index=index_name, body=query)
@@ -194,7 +209,7 @@ class ElasticsearchClient:
             Number of documents in the index
         """
         if index_name is None:
-            index_name = self.index_name
+            index_name = DEFAULT_INDEX_NAME
 
         try:
             response = self.es.count(index=index_name)
@@ -214,6 +229,6 @@ class ElasticsearchClient:
             True if index exists
         """
         if index_name is None:
-            index_name = self.index_name
+            index_name = DEFAULT_INDEX_NAME
 
         return self.es.indices.exists(index=index_name)

@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ..search.elasticsearch_client import ElasticsearchClient
+from ..config import ELASTICSEARCH_URL, DEFAULT_INDEX_NAME
 
 
 class TestElasticsearchClient(unittest.TestCase):
@@ -13,8 +14,14 @@ class TestElasticsearchClient(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.host = "http://localhost:9200"
-        self.index_name = "test-index"
+        # Use config values for standard tests
+        self.host = ELASTICSEARCH_URL  # Use config value
+        self.index_name = DEFAULT_INDEX_NAME
+        
+        # Hardcoded values for specific test scenarios
+        self.invalid_host = "http://invalid-host:9999"  # For error testing
+        self.test_index = "test-only-index"  # For isolated test operations
+        
         self.sample_documents = [
             {
                 "doc_id": "doc1",
@@ -36,13 +43,14 @@ class TestElasticsearchClient(unittest.TestCase):
     def test_init_success(self, mock_elasticsearch):
         """Test successful initialization."""
         mock_es = Mock()
+        mock_es.info.return_value = {"cluster_name": "test-cluster"}
         mock_elasticsearch.return_value = mock_es
 
-        client = ElasticsearchClient(self.host, self.index_name)
+        client = ElasticsearchClient(self.host)
 
-        self.assertEqual(client.host, self.host)
-        self.assertEqual(client.index_name, self.index_name)
+        self.assertEqual(client.es_url, self.host)
         mock_elasticsearch.assert_called_once_with(hosts=self.host)
+        mock_es.info.assert_called_once()
 
     @patch("rag.search.elasticsearch_client.Elasticsearch")
     def test_init_connection_error(self, mock_elasticsearch):
@@ -50,7 +58,7 @@ class TestElasticsearchClient(unittest.TestCase):
         mock_elasticsearch.side_effect = Exception("Connection failed")
 
         with self.assertRaises(Exception) as context:
-            ElasticsearchClient(self.host, self.index_name)
+            ElasticsearchClient(self.host)
 
         self.assertIn("Connection failed", str(context.exception))
 
@@ -58,15 +66,17 @@ class TestElasticsearchClient(unittest.TestCase):
     def test_create_index_success(self, mock_elasticsearch):
         """Test successful index creation."""
         mock_es = Mock()
+        mock_es.info.return_value = {"cluster_name": "test-cluster"}  # Mock the info() call
         mock_es.indices.exists.return_value = False
         mock_es.indices.create.return_value = {"acknowledged": True}
         mock_elasticsearch.return_value = mock_es
 
-        client = ElasticsearchClient(self.host, self.index_name)
+        client = ElasticsearchClient(self.host)
         result = client.create_index()
 
         self.assertTrue(result)
-        mock_es.indices.exists.assert_called_once_with(index=self.index_name)
+        # indices.exists is called once in create_index method
+        mock_es.indices.exists.assert_called_once_with(index=DEFAULT_INDEX_NAME)
         mock_es.indices.create.assert_called_once()
 
     @patch("rag.search.elasticsearch_client.Elasticsearch")
@@ -76,11 +86,11 @@ class TestElasticsearchClient(unittest.TestCase):
         mock_es.indices.exists.return_value = True
         mock_elasticsearch.return_value = mock_es
 
-        client = ElasticsearchClient(self.host, self.index_name)
+        client = ElasticsearchClient(self.host)
         result = client.create_index()
 
         self.assertTrue(result)
-        mock_es.indices.exists.assert_called_once_with(index=self.index_name)
+        mock_es.indices.exists.assert_called_once_with(index=DEFAULT_INDEX_NAME)
         mock_es.indices.create.assert_not_called()
 
     @patch("rag.search.elasticsearch_client.Elasticsearch")
@@ -187,6 +197,7 @@ class TestElasticsearchClient(unittest.TestCase):
     def test_search_documents_success(self, mock_elasticsearch):
         """Test successful document search."""
         mock_es = Mock()
+        mock_es.info.return_value = {"cluster_name": "test-cluster"}  # Mock the info() call
         mock_response = {"hits": {"hits": [{"_source": self.sample_documents[0]}, {"_source": self.sample_documents[1]}]}}
         mock_es.search.return_value = mock_response
         mock_elasticsearch.return_value = mock_es
@@ -204,6 +215,7 @@ class TestElasticsearchClient(unittest.TestCase):
     def test_search_documents_no_results(self, mock_elasticsearch):
         """Test document search with no results."""
         mock_es = Mock()
+        mock_es.info.return_value = {"cluster_name": "test-cluster"}  # Mock the info() call
         mock_response = {"hits": {"hits": []}}
         mock_es.search.return_value = mock_response
         mock_elasticsearch.return_value = mock_es
@@ -219,6 +231,7 @@ class TestElasticsearchClient(unittest.TestCase):
     def test_search_documents_error(self, mock_elasticsearch):
         """Test document search with error."""
         mock_es = Mock()
+        mock_es.info.return_value = {"cluster_name": "test-cluster"}  # Mock the info() call
         mock_es.search.side_effect = Exception("Search failed")
         mock_elasticsearch.return_value = mock_es
 
