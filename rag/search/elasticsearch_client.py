@@ -11,7 +11,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
 from tqdm.auto import tqdm
 
-from ..config import ELASTICSEARCH_URL, INDEX_SETTINGS, DEFAULT_INDEX_NAME
+from ..config import ELASTICSEARCH_URL, INDEX_SETTINGS
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +25,6 @@ class ElasticsearchClient:
 
         Args:
             es_url: Elasticsearch URL
-            
-        Warning:
-            Be careful with index_name - all operations will target this index by default!
-            Consider using test-specific names for development/testing.
         """
         self.es_url = es_url
         
@@ -51,12 +47,12 @@ class ElasticsearchClient:
         """
         return self.es
 
-    def create_index(self, index_name: str = None, settings: Dict[str, Any] = None, delete_if_exists: bool = False) -> bool:
+    def create_index(self, index_name: str, settings: Dict[str, Any] = None, delete_if_exists: bool = False) -> bool:
         """
         Create an Elasticsearch index.
 
         Args:
-            index_name: Name of the index to create
+            index_name: Name of the index to create (REQUIRED)
             settings: Index settings and mappings
             delete_if_exists: Whether to delete existing index (DANGEROUS - will delete all data!)
 
@@ -66,8 +62,6 @@ class ElasticsearchClient:
         Raises:
             Exception: If index already exists and delete_if_exists is False
         """
-        if index_name is None:
-            index_name = DEFAULT_INDEX_NAME
         if settings is None:
             settings = INDEX_SETTINGS
 
@@ -92,19 +86,16 @@ class ElasticsearchClient:
             logger.error(f"Error creating index '{index_name}': {e}")
             raise
 
-    def delete_index(self, index_name: str = None) -> bool:
+    def delete_index(self, index_name: str) -> bool:
         """
         Delete an Elasticsearch index.
 
         Args:
-            index_name: Name of the index to delete
+            index_name: Name of the index to delete (REQUIRED)
 
         Returns:
             True if index was deleted or didn't exist
         """
-        if index_name is None:
-            index_name = DEFAULT_INDEX_NAME
-
         try:
             self.es.indices.delete(index=index_name)
             logger.info(f"Deleted index '{index_name}'")
@@ -116,20 +107,18 @@ class ElasticsearchClient:
             logger.error(f"Error deleting index '{index_name}': {e}")
             raise
 
-    def index_document(self, document: Dict[str, Any], doc_id: str = None, index_name: str = None) -> bool:
+    def index_document(self, document: Dict[str, Any], index_name: str, doc_id: str = None) -> bool:
         """
         Index a single document.
 
         Args:
             document: Document to index
+            index_name: Index name (REQUIRED)
             doc_id: Document ID (uses document's doc_id if not provided)
-            index_name: Index name
 
         Returns:
             True if document was indexed successfully
         """
-        if index_name is None:
-            index_name = DEFAULT_INDEX_NAME
         if doc_id is None:
             doc_id = document.get("doc_id")
 
@@ -140,21 +129,18 @@ class ElasticsearchClient:
             logger.error(f"Error indexing document {doc_id}: {e}")
             raise
 
-    def index_documents(self, documents: List[Dict[str, Any]], index_name: str = None, show_progress: bool = True) -> int:
+    def index_documents(self, documents: List[Dict[str, Any]], index_name: str, show_progress: bool = True) -> int:
         """
         Index multiple documents.
 
         Args:
             documents: List of documents to index
-            index_name: Index name
+            index_name: Index name (REQUIRED)
             show_progress: Whether to show progress bar
 
         Returns:
             Number of successfully indexed documents
         """
-        if index_name is None:
-            index_name = DEFAULT_INDEX_NAME
-
         indexed_count = 0
 
         iterator = tqdm(documents, desc="Indexing documents") if show_progress else documents
@@ -171,22 +157,19 @@ class ElasticsearchClient:
         return indexed_count
 
     def search_documents(
-        self, query: Dict[str, Any], index_name: str = None, return_raw: bool = False
+        self, query: Dict[str, Any], index_name: str, return_raw: bool = False
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Search documents in Elasticsearch.
 
         Args:
             query: Elasticsearch query
-            index_name: Index name
+            index_name: Index name (REQUIRED)
             return_raw: Whether to return raw Elasticsearch response
 
         Returns:
             List of documents or raw response
         """
-        if index_name is None:
-            index_name = DEFAULT_INDEX_NAME
-
         try:
             response = self.es.search(index=index_name, body=query)
 
@@ -198,19 +181,16 @@ class ElasticsearchClient:
             logger.error(f"Error searching documents: {e}")
             raise
 
-    def count_documents(self, index_name: str = None) -> int:
+    def count_documents(self, index_name: str) -> int:
         """
         Count documents in an index.
 
         Args:
-            index_name: Index name
+            index_name: Index name (REQUIRED)
 
         Returns:
             Number of documents in the index
         """
-        if index_name is None:
-            index_name = DEFAULT_INDEX_NAME
-
         try:
             response = self.es.count(index=index_name)
             return response["count"]
@@ -218,17 +198,17 @@ class ElasticsearchClient:
             logger.error(f"Error counting documents: {e}")
             raise
 
-    def index_exists(self, index_name: str = None) -> bool:
+    def index_exists(self, index_name: str) -> bool:
         """
         Check if an index exists.
 
         Args:
-            index_name: Index name
+            index_name: Index name (REQUIRED)
 
         Returns:
             True if index exists
         """
-        if index_name is None:
-            index_name = DEFAULT_INDEX_NAME
-
-        return self.es.indices.exists(index=index_name)
+        logger.info(f"Checking if index '{index_name}' exists")
+        exists = self.es.indices.exists(index=index_name)
+        logger.info(f"Index {index_name} exists: {exists}")
+        return exists
