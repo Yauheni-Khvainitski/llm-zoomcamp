@@ -30,6 +30,7 @@ dev = [
     "bandit>=1.8.0",
     "safety>=3.2.11",
     "pydocstyle>=6.3.0",
+    "types-requests>=2.32.0",
 ]
 jupyter = [
     "jupyter>=1.1.1",
@@ -178,7 +179,7 @@ ignore_errors = true
 # pydocstyle configuration
 [tool.pydocstyle]
 convention = "google"
-add-ignore = ["D100", "D104", "D105", "D107"]
+add-ignore = ["D100", "D104", "D105", "D107", "D200", "D212", "D415"]
 
 # Pylint configuration
 [tool.pylint.messages_control]
@@ -195,6 +196,7 @@ disable = [
     "W0612",  # unused-variable
     "W0718",  # broad-exception-caught
     "W1203",  # logging-fstring-interpolation
+    "W1404",  # implicit-str-concat
     "R0801",  # duplicate-code
     "R1705",  # no-else-return
     "E1101",  # no-member (often false positives)

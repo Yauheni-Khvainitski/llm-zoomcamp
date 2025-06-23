@@ -128,7 +128,7 @@ class DocumentLoader:
         if not self.documents:
             self.load_documents()
 
-        courses = {}
+        courses: Dict[str, int] = {}
         for doc in self.documents:
             course = doc["course"]
             courses[course] = courses.get(course, 0) + 1
