@@ -40,7 +40,7 @@ class DocumentLoader:
             Unique document ID
         """
         doc_str = json.dumps(doc, sort_keys=True)
-        doc_hash = hashlib.md5(doc_str.encode()).hexdigest()
+        doc_hash = hashlib.md5(doc_str.encode(), usedforsecurity=False).hexdigest()
         return doc_hash
 
     def fetch_documents(self) -> List[Dict[str, Any]]:
