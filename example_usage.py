@@ -49,7 +49,7 @@ def main():
         # Set up the index and load documents
         print("\n3. Setting up Index and Loading Documents...")
         setup_result = rag.setup_index()
-        print(f"✅ Setup complete:")
+        print("✅ Setup complete:")
         print(f"   - Documents loaded: {setup_result['documents_loaded']}")
         print(f"   - Documents indexed: {setup_result['documents_indexed']}")
 

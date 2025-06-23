@@ -31,7 +31,7 @@ def run_command(cmd, description=""):
         return False
     except FileNotFoundError:
         print(f"❌ {description} - COMMAND NOT FOUND")
-        print(f"   Make sure the required tools are installed")
+        print("   Make sure the required tools are installed")
         return False
 
 
