@@ -44,13 +44,13 @@ CONTEXT:
         Format a single document using the context template.
 
         Args:
-            document: Document with 'question' and 'text' fields
+            document: Document with fields needed by the template
 
         Returns:
             Formatted document string
         """
         try:
-            return self.context_template.format(question=document["question"], text=document["text"])
+            return self.context_template.format(**document)
         except KeyError as e:
             logger.error(f"Missing field in document: {e}")
             raise

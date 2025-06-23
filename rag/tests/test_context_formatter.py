@@ -221,7 +221,7 @@ class TestContextFormatter(unittest.TestCase):
 
     def test_get_context_stats_no_qa(self):
         """Test getting statistics for context without Q: and A: markers."""
-        context = "This is just plain text\nwith multiple lines\nbut no Q: or A: markers"
+        context = "This is just plain text\nwith multiple lines\nbut no question or answer markers"
 
         stats = self.formatter.get_context_stats(context)
 

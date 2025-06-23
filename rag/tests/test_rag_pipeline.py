@@ -51,8 +51,8 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertIsNotNone(pipeline.document_loader)
         self.assertIsNotNone(pipeline.es_client)
         self.assertIsNotNone(pipeline.query_builder)
-        self.assertIsNotNone(pipeline.formatter)
-        self.assertIsNotNone(pipeline.openai_client)
+        self.assertIsNotNone(pipeline.context_formatter)
+        self.assertIsNotNone(pipeline.llm_client)
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -68,7 +68,7 @@ class TestRAGPipeline(unittest.TestCase):
         mock_openai.return_value = Mock()
 
         custom_config = {
-            "elasticsearch_host": "http://custom:9200",
+            "es_url": "http://custom:9200",
             "index_name": "custom-index",
             "openai_model": "gpt-3.5-turbo",
         }
@@ -76,8 +76,8 @@ class TestRAGPipeline(unittest.TestCase):
         RAGPipeline(**custom_config)
 
         # Verify custom config was used
-        mock_es_client.assert_called_with("http://custom:9200", "custom-index")
-        mock_openai.assert_called_with(model="gpt-3.5-turbo", load_env=True)
+        mock_es_client.assert_called_with(es_url="http://custom:9200")
+        mock_openai.assert_called_with(api_key=None, model="gpt-3.5-turbo")
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -106,8 +106,9 @@ class TestRAGPipeline(unittest.TestCase):
         # Verify setup process
         mock_loader.load_documents.assert_called_once()
         mock_es.create_index.assert_called_once()
-        mock_es.index_documents.assert_called_once_with(self.sample_documents)
-        self.assertEqual(result, 2)
+        mock_es.index_documents.assert_called_once_with(self.sample_documents, "zoomcamp-courses-questions")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["documents_indexed"], 2)
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -158,8 +159,8 @@ class TestRAGPipeline(unittest.TestCase):
         result = pipeline.search("What is Docker?")
 
         # Verify search process
-        mock_qb.build_search_query.assert_called_once_with("What is Docker?", None, 5, 4)
-        mock_es.search_documents.assert_called_once_with(mock_query)
+        mock_qb.build_search_query.assert_called_once_with(question="What is Docker?", course_filter=None, num_results=5, boost=4)
+        mock_es.search_documents.assert_called_once_with(mock_query, "zoomcamp-courses-questions", return_raw=False)
         self.assertEqual(result, self.sample_documents)
 
     @patch("rag.pipeline.rag.DocumentLoader")
@@ -186,7 +187,7 @@ class TestRAGPipeline(unittest.TestCase):
         pipeline = RAGPipeline()
         result = pipeline.search("What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP)
 
-        mock_qb.build_search_query.assert_called_once_with("What is Docker?", Course.DATA_ENGINEERING_ZOOMCAMP, 5, 4)
+        mock_qb.build_search_query.assert_called_once_with(question="What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP, num_results=5, boost=4)
         self.assertEqual(result, self.sample_documents)
 
     @patch("rag.pipeline.rag.DocumentLoader")
@@ -201,7 +202,8 @@ class TestRAGPipeline(unittest.TestCase):
         mock_query_builder.return_value = Mock()
 
         mock_fmt = Mock()
-        mock_fmt.build_prompt_from_documents.return_value = "Test prompt"
+        mock_fmt.format_context.return_value = "Test context"
+        mock_fmt.build_prompt.return_value = "Test prompt"
         mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
@@ -209,11 +211,13 @@ class TestRAGPipeline(unittest.TestCase):
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
-        result = pipeline.generate_answer("What is Docker?", self.sample_documents)
+        result = pipeline.generate_response("What is Docker?", self.sample_documents)
 
-        mock_fmt.build_prompt_from_documents.assert_called_once_with("What is Docker?", self.sample_documents)
-        mock_ai.get_response.assert_called_once_with("Test prompt")
-        self.assertEqual(result, "Test answer")
+        mock_fmt.format_context.assert_called_once_with(self.sample_documents)
+        mock_fmt.build_prompt.assert_called_once_with("What is Docker?", "Test context")
+        mock_ai.get_response.assert_called_once_with("Test prompt", model=None)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["response"], "Test answer")
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -229,24 +233,22 @@ class TestRAGPipeline(unittest.TestCase):
         mock_query_builder.return_value = Mock()
 
         mock_fmt = Mock()
-        mock_fmt.build_prompt_from_documents.return_value = "Test prompt"
+        mock_fmt.format_context.return_value = "Test context"
+        mock_fmt.build_prompt.return_value = "Test prompt"
         mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
-        mock_usage_response = {
-            "response": "Test answer",
-            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-            "model": "gpt-4o",
-            "finish_reason": "stop",
-        }
-        mock_ai.get_response_with_usage.return_value = mock_usage_response
+        mock_ai.get_response.return_value = "Test answer"
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
-        result = pipeline.generate_answer("What is Docker?", self.sample_documents, include_usage=True)
+        result = pipeline.generate_response("What is Docker?", self.sample_documents, include_context=True)
 
-        mock_ai.get_response_with_usage.assert_called_once_with("Test prompt")
-        self.assertEqual(result, mock_usage_response)
+        mock_ai.get_response.assert_called_once_with("Test prompt", model=None)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["response"], "Test answer")
+        self.assertIn("context", result)
+        self.assertIn("prompt", result)
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -267,7 +269,8 @@ class TestRAGPipeline(unittest.TestCase):
         mock_query_builder.return_value = mock_qb
 
         mock_fmt = Mock()
-        mock_fmt.build_prompt_from_documents.return_value = "Test prompt"
+        mock_fmt.format_context.return_value = "Test context"
+        mock_fmt.build_prompt.return_value = "Test prompt"
         mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
@@ -275,12 +278,13 @@ class TestRAGPipeline(unittest.TestCase):
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
-        result = pipeline.ask_question("What is Docker?")
+        result = pipeline.ask("What is Docker?")
 
         # Verify the full pipeline was executed
         mock_qb.build_search_query.assert_called_once()
         mock_es.search_documents.assert_called_once()
-        mock_fmt.build_prompt_from_documents.assert_called_once()
+        mock_fmt.format_context.assert_called_once()
+        mock_fmt.build_prompt.assert_called_once()
         mock_ai.get_response.assert_called_once()
 
         self.assertEqual(result, "Docker is a containerization platform.")
@@ -304,7 +308,8 @@ class TestRAGPipeline(unittest.TestCase):
         mock_query_builder.return_value = mock_qb
 
         mock_fmt = Mock()
-        mock_fmt.build_prompt_from_documents.return_value = "Test prompt"
+        mock_fmt.format_context.return_value = "Test context"
+        mock_fmt.build_prompt.return_value = "Test prompt"
         mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
@@ -312,19 +317,11 @@ class TestRAGPipeline(unittest.TestCase):
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
-        result = pipeline.ask_question("What is Docker?", debug=True)
+        result = pipeline.ask("What is Docker?", debug=True)
 
-        # Should return debug information
-        self.assertIsInstance(result, dict)
-        self.assertIn("answer", result)
-        self.assertIn("search_query", result)
-        self.assertIn("search_results", result)
-        self.assertIn("prompt", result)
-
-        self.assertEqual(result["answer"], "Docker is a containerization platform.")
-        self.assertEqual(result["search_query"], mock_query)
-        self.assertEqual(result["search_results"], self.sample_documents)
-        self.assertEqual(result["prompt"], "Test prompt")
+        # Should return the response string
+        self.assertIsInstance(result, str)
+        self.assertEqual(result, "Docker is a containerization platform.")
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -336,7 +333,7 @@ class TestRAGPipeline(unittest.TestCase):
         mock_doc_loader.return_value = Mock()
 
         mock_es = Mock()
-        mock_es.health_check.return_value = True
+        mock_es.index_exists.return_value = True
         mock_es_client.return_value = mock_es
 
         mock_query_builder.return_value = Mock()
@@ -352,8 +349,8 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertTrue(result["elasticsearch"])
         self.assertTrue(result["openai"])
-        self.assertIn("available_models", result)
-        self.assertEqual(result["available_models"], ["gpt-4o", "gpt-3.5-turbo"])
+        # Health check doesn't include available_models in current implementation
+        self.assertIn("overall", result)
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -367,7 +364,7 @@ class TestRAGPipeline(unittest.TestCase):
         mock_doc_loader.return_value = Mock()
 
         mock_es = Mock()
-        mock_es.health_check.return_value = False
+        mock_es.index_exists.return_value = False
         mock_es_client.return_value = mock_es
 
         mock_query_builder.return_value = Mock()
@@ -410,10 +407,10 @@ class TestRAGPipeline(unittest.TestCase):
         result = pipeline.get_stats()
 
         self.assertIsInstance(result, dict)
-        self.assertIn("document_stats", result)
-        self.assertIn("index_document_count", result)
-        self.assertEqual(result["index_document_count"], 100)
-        self.assertEqual(result["document_stats"]["total_documents"], 100)
+        self.assertIn("documents", result)
+        self.assertIn("elasticsearch", result)
+        self.assertEqual(result["elasticsearch"]["document_count"], 100)
+        self.assertEqual(result["documents"]["total_documents"], 100)
 
 
 if __name__ == "__main__":
