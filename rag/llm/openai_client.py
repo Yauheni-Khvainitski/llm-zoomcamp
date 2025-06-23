@@ -88,6 +88,8 @@ class OpenAIClient:
 
             # Extract the response text
             response_text = response.choices[0].message.content
+            if response_text is None:
+                response_text = ""
 
             logger.debug(f"Generated response with {len(response_text)} characters")
             return response_text

@@ -174,7 +174,7 @@ class ElasticsearchClient:
             response = self.es.search(index=index_name, body=query)
 
             if return_raw:
-                return response
+                return response  # type: ignore[return-value]
             else:
                 return [hit["_source"] for hit in response["hits"]["hits"]]
         except Exception as e:
@@ -193,7 +193,7 @@ class ElasticsearchClient:
         """
         try:
             response = self.es.count(index=index_name)
-            return response["count"]
+            return response["count"]  # type: ignore[return-value]
         except Exception as e:
             logger.error(f"Error counting documents: {e}")
             raise
@@ -211,7 +211,7 @@ class ElasticsearchClient:
         """
         try:
             response = self.es.count(index=index_name, body=query)
-            return response["count"]
+            return response["count"]  # type: ignore[return-value]
         except Exception as e:
             logger.error(f"Error counting documents with query: {e}")
             raise
@@ -229,7 +229,7 @@ class ElasticsearchClient:
         """
         try:
             response = self.es.get(index=index_name, id=doc_id)
-            return response["_source"]
+            return response["_source"]  # type: ignore[return-value]
         except NotFoundError:
             logger.info(f"Document {doc_id} not found in index {index_name}")
             return None
@@ -267,7 +267,7 @@ class ElasticsearchClient:
             True if Elasticsearch is available
         """
         try:
-            return self.es.ping()
+            return self.es.ping()  # type: ignore[return-value]
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return False

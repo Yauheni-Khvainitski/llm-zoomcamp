@@ -60,8 +60,9 @@ jobs:
     
     - name: Dependency security check
       run: |
-        safety scan --json || echo "Safety scan completed with warnings"
-      continue-on-error: true  # Safety can be strict with dependency warnings
+        pip-audit --format=json --output=audit-report.json || echo "Vulnerabilities found, check audit-report.json"
+        pip-audit --format=columns || echo "Dependency scan completed with warnings"
+      continue-on-error: true  # Allow workflow to continue if vulnerabilities are found
     
     - name: Check for TODO/FIXME comments
       run: |
