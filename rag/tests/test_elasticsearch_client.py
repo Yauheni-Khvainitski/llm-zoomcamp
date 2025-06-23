@@ -17,11 +17,11 @@ class TestElasticsearchClient(unittest.TestCase):
         # Use config values for standard tests
         self.host = ELASTICSEARCH_URL  # Use config value
         self.index_name = DEFAULT_INDEX_NAME
-        
+
         # Hardcoded values for specific test scenarios
         self.invalid_host = "http://invalid-host:9999"  # For error testing
         self.test_index = "test-only-index"  # For isolated test operations
-        
+
         self.sample_documents = [
             {
                 "doc_id": "doc1",
@@ -128,7 +128,7 @@ class TestElasticsearchClient(unittest.TestCase):
     def test_delete_index_not_exists(self, mock_elasticsearch):
         """Test index deletion when index doesn't exist."""
         from elasticsearch.exceptions import NotFoundError
-        
+
         mock_es = Mock()
         mock_es.info.return_value = {"cluster_name": "test-cluster"}
         mock_es.indices.delete.side_effect = NotFoundError("Index not found", meta=Mock(), body={})

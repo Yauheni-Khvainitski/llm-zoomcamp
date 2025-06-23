@@ -27,7 +27,7 @@ class ElasticsearchClient:
             es_url: Elasticsearch URL
         """
         self.es_url = es_url
-        
+
         self.es = Elasticsearch(hosts=es_url)
 
         # Test connection
@@ -58,7 +58,7 @@ class ElasticsearchClient:
 
         Returns:
             True if index was created successfully
-            
+
         Raises:
             Exception: If index already exists and delete_if_exists is False
         """
@@ -68,7 +68,7 @@ class ElasticsearchClient:
         # Safety check: warn about destructive operation
         if delete_if_exists and self.index_exists(index_name):
             logger.warning(f"⚠️  DESTRUCTIVE OPERATION: About to delete existing index '{index_name}' and all its data!")
-            
+
         # Check if index already exists
         if self.index_exists(index_name) and not delete_if_exists:
             logger.info(f"Index '{index_name}' already exists. Use delete_if_exists=True to overwrite.")
