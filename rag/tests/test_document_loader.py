@@ -81,7 +81,7 @@ class TestDocumentLoader(unittest.TestCase):
 
         result = self.loader.fetch_documents()
 
-        mock_get.assert_called_once_with(self.loader.documents_url)
+        mock_get.assert_called_once_with(self.loader.documents_url, timeout=30)
         mock_response.raise_for_status.assert_called_once()
         self.assertEqual(result, self.sample_raw_documents)
 
@@ -195,7 +195,11 @@ class TestDocumentLoader(unittest.TestCase):
     @patch.object(DocumentLoader, "load_documents")
     def test_get_documents_by_course_loads_if_empty(self, mock_load):
         """Test that get_documents_by_course loads documents if not already loaded."""
-        mock_load.return_value = [{"course": "test", "text": "doc"}]
+        def mock_load_side_effect():
+            self.loader.documents = [{"course": "test", "text": "doc"}]
+            return self.loader.documents
+        
+        mock_load.side_effect = mock_load_side_effect
 
         result = self.loader.get_documents_by_course("test")
 
@@ -223,7 +227,11 @@ class TestDocumentLoader(unittest.TestCase):
     @patch.object(DocumentLoader, "load_documents")
     def test_get_document_stats_loads_if_empty(self, mock_load):
         """Test that get_document_stats loads documents if not already loaded."""
-        mock_load.return_value = [{"course": "test", "text": "doc"}]
+        def mock_load_side_effect():
+            self.loader.documents = [{"course": "test", "text": "doc"}]
+            return self.loader.documents
+        
+        mock_load.side_effect = mock_load_side_effect
 
         stats = self.loader.get_document_stats()
 

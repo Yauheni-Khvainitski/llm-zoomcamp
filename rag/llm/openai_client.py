@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class OpenAIClient:
     """Client for interacting with OpenAI's API."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = OPENAI_MODEL, load_env: bool = True):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, load_env: bool = True):
         """
         Initialize the OpenAI client.
 
@@ -27,7 +27,7 @@ class OpenAIClient:
             model: Default model to use
             load_env: Whether to load environment variables
         """
-        self.model = model
+        self.model = model or OPENAI_MODEL
 
         if load_env:
             self._load_environment()
