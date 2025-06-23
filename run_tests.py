@@ -6,7 +6,7 @@ This script provides an easy way to run tests without requiring make or complex 
 """
 
 import argparse
-import subprocess
+import subprocess  # nosec B404 - subprocess usage is safe with predefined commands
 import sys
 from pathlib import Path
 
@@ -17,7 +17,7 @@ def run_command(cmd, description=""):
     print(f"   Running: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)  # nosec B603 - using predefined commands only
         print(f"✅ {description} - SUCCESS")
         if result.stdout:
             print(f"   Output: {result.stdout.strip()}")
