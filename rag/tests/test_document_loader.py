@@ -195,10 +195,11 @@ class TestDocumentLoader(unittest.TestCase):
     @patch.object(DocumentLoader, "load_documents")
     def test_get_documents_by_course_loads_if_empty(self, mock_load):
         """Test that get_documents_by_course loads documents if not already loaded."""
+
         def mock_load_side_effect():
             self.loader.documents = [{"course": "test", "text": "doc"}]
             return self.loader.documents
-        
+
         mock_load.side_effect = mock_load_side_effect
 
         result = self.loader.get_documents_by_course("test")
@@ -227,10 +228,11 @@ class TestDocumentLoader(unittest.TestCase):
     @patch.object(DocumentLoader, "load_documents")
     def test_get_document_stats_loads_if_empty(self, mock_load):
         """Test that get_document_stats loads documents if not already loaded."""
+
         def mock_load_side_effect():
             self.loader.documents = [{"course": "test", "text": "doc"}]
             return self.loader.documents
-        
+
         mock_load.side_effect = mock_load_side_effect
 
         stats = self.loader.get_document_stats()
