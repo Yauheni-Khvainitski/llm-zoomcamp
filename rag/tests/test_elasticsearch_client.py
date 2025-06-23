@@ -5,8 +5,8 @@ Tests for the ElasticsearchClient class.
 import unittest
 from unittest.mock import Mock, patch
 
+from ..config import DEFAULT_INDEX_NAME, ELASTICSEARCH_URL
 from ..search.elasticsearch_client import ElasticsearchClient
-from ..config import ELASTICSEARCH_URL, DEFAULT_INDEX_NAME
 
 
 class TestElasticsearchClient(unittest.TestCase):

@@ -5,9 +5,9 @@ Simple test runner script for the RAG system.
 This script provides an easy way to run tests without requiring make or complex commands.
 """
 
-import sys
-import subprocess
 import argparse
+import subprocess
+import sys
 from pathlib import Path
 
 

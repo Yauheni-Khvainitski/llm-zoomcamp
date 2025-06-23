@@ -6,11 +6,12 @@ This script demonstrates how to use the structured RAG system
 that was extracted from the rag.ipynb notebook.
 """
 
-import os
 import logging
+import os
+
 from dotenv import load_dotenv
 
-from rag import RAGPipeline, Course
+from rag import Course, RAGPipeline
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -142,8 +143,8 @@ def test_components():
     print("=" * 50)
 
     # Test QueryBuilder
-    from rag.search import QueryBuilder
     from rag.models import Course
+    from rag.search import QueryBuilder
 
     print("\n1. Testing QueryBuilder...")
     query_builder = QueryBuilder()
