@@ -87,7 +87,7 @@ type-check:
 
 security:
 	bandit -r rag/ -ll
-	safety check
+	safety scan
 
 # Documentation
 docs:

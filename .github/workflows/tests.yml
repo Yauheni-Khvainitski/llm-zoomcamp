@@ -204,9 +204,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install safety bandit
     
-    - name: Run safety check
+    - name: Run safety scan
       run: |
-        safety check --json || true
+        safety scan --json || true
     
     - name: Run bandit security scan
       run: |

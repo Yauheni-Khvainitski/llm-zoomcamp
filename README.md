@@ -334,7 +334,7 @@ mypy rag/
 
 # Security scanning
 bandit -r rag/
-safety check
+safety scan
 ```
 
 ### Pre-commit Workflow
