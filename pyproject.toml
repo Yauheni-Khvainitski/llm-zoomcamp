@@ -1,30 +1,215 @@
-[project]
-name = "llm-zoomcamp"
-version = "0.1.0"
-description = "LLM Zoomcamp course repo"
-authors = [
-    {name = "Yauheni-Khvainitski", email = "euheniy.khvoinitski@gmail.com"}
-]
-readme = "README.md"
-requires-python = "^3.10"
-dependencies = [
-    "elasticsearch>=9.0.2",
-    "tqdm>=4.67.1",
-    "ipywidgets>=8.1.7",
-    "openai>=1.84.0",
-    "python-dotenv>=1.1.0"
-]
-
-[project.urls]
-repository = "https://github.com/Yauheni-Khvainitski/llm-zoomcamp.git"
-
-[tool.poetry]
-package-mode = false
-
-[tool.poetry.group.dev.dependencies]
-notebook = "7.4.3"
-flake8 = "7.2.0"
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "llm-zoomcamp-rag-system"
+version = "1.0.0"
+description = "A comprehensive RAG system for Q&A over course documents"
+authors = [{name = "Yauheni Khvainitski", email = "euheniy.khvoinitski@gmail.com"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "elasticsearch>=9.0.2",
+    "openai>=1.84.0",
+    "python-dotenv>=1.0.1",
+    "requests>=2.32.4",
+    "tqdm>=4.66.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-cov>=6.0.0",
+    "coverage>=7.6.9",
+    "black>=24.10.0",
+    "isort>=5.13.2",
+    "flake8>=7.1.1",
+    "mypy>=1.13.0",
+    "pylint>=3.3.1",
+    "bandit>=1.8.0",
+    "pip-audit>=2.6.1",
+    "pydocstyle>=6.3.0",
+    "types-requests>=2.32.0",
+]
+jupyter = [
+    "jupyter>=1.1.1",
+    "ipywidgets>=8.1.5",
+]
+tokens = [
+    "tiktoken>=0.9.0",
+]
+
+[project.urls]
+Repository = "https://github.com/Yauheni-Khvainitski/llm-zoomcamp"
+Documentation = "https://github.com/Yauheni-Khvainitski/llm-zoomcamp/blob/main/README.md"
+
+# Setuptools configuration
+[tool.setuptools]
+packages = ["rag"]
+
+[tool.setuptools.package-dir]
+"" = "."
+
+# Poetry configuration (for package discovery)
+[tool.poetry]
+packages = [{include = "rag"}]
+
+# Poetry dependency groups (for compatibility)
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3.3"
+pytest-cov = ">=6.0.0"
+coverage = ">=7.6.9"
+black = ">=24.10.0"
+isort = ">=5.13.2"
+flake8 = ">=7.1.1"
+mypy = ">=1.13.0"
+pylint = ">=3.3.1"
+bandit = ">=1.8.0"
+safety = ">=3.2.11"
+pydocstyle = ">=6.3.0"
+autoflake = "^2.3.1"
+
+[tool.poetry.group.jupyter.dependencies]
+jupyter = ">=1.1.1"
+ipywidgets = ">=8.1.5"
+
+[tool.poetry.group.tokens.dependencies]
+tiktoken = ">=0.9.0"
+
+# Black configuration
+[tool.black]
+line-length = 127
+target-version = ['py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# isort configuration
+[tool.isort]
+profile = "black"
+line_length = 127
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+# pytest configuration
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["rag/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["rag"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# mypy configuration
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+# Ignore some complex issues for now
+[[tool.mypy.overrides]]
+module = [
+    "rag.llm.openai_client",
+    "rag.tests.*",
+    "example_usage",
+]
+ignore_errors = true
+
+# pydocstyle configuration
+[tool.pydocstyle]
+convention = "google"
+add-ignore = ["D100", "D104", "D105", "D107", "D200", "D212", "D415"]
+
+# Pylint configuration
+[tool.pylint.messages_control]
+disable = [
+    "C0114",  # missing-module-docstring
+    "C0115",  # missing-class-docstring  
+    "C0116",  # missing-function-docstring
+    "C0415",  # import-outside-toplevel
+    "R0903",  # too-few-public-methods
+    "R0913",  # too-many-arguments
+    "R0917",  # too-many-positional-arguments
+    "R0904",  # too-many-public-methods
+    "W0613",  # unused-argument
+    "W0612",  # unused-variable
+    "W0718",  # broad-exception-caught
+    "W1203",  # logging-fstring-interpolation
+    "W1404",  # implicit-str-concat
+    "R0801",  # duplicate-code
+    "R1705",  # no-else-return
+    "E1101",  # no-member (often false positives)
+    "E1120",  # no-value-for-parameter (often false positives)
+    "E1123",  # unexpected-keyword-arg (often false positives)
+]
+
+[tool.pylint.format]
+max-line-length = 127
+
+[tool.pylint.design]
+max-args = 10
+max-locals = 20
+max-returns = 6
+max-branches = 15
+max-statements = 50

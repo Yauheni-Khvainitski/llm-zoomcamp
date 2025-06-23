@@ -1,0 +1,122 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-quality-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-quality-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Check code formatting with Black
+      run: |
+        black --check --diff rag/
+    
+    - name: Check import sorting with isort
+      run: |
+        isort --check-only --diff rag/
+    
+    - name: Lint with flake8
+      run: |
+        flake8 rag/ --max-line-length=127 --extend-ignore=E203,W503
+    
+    - name: Type checking with mypy
+      run: |
+        mypy rag/ --ignore-missing-imports --no-strict-optional
+      continue-on-error: true  # Type checking can be strict
+    
+    - name: Lint with pylint
+      run: |
+        pylint rag/ --disable=C0114,C0115,C0116,R0903,R0913,W0613
+      continue-on-error: true  # Pylint can be very strict
+    
+    - name: Security scan with bandit
+      run: |
+        bandit -r rag/ -ll
+    
+    - name: Dependency security check
+      run: |
+        pip-audit --format=json --output=audit-report.json || echo "Vulnerabilities found, check audit-report.json"
+        pip-audit --format=columns || echo "Dependency scan completed with warnings"
+      continue-on-error: true  # Allow workflow to continue if vulnerabilities are found
+    
+    - name: Check for TODO/FIXME comments
+      run: |
+        echo "Checking for TODO/FIXME comments..."
+        if grep -r "TODO\|FIXME" rag/ --exclude-dir=__pycache__ || true; then
+          echo "⚠️ Found TODO/FIXME comments (not blocking)"
+        else
+          echo "✅ No TODO/FIXME comments found"
+        fi
+
+  documentation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Check docstring style
+      run: |
+        pydocstyle rag/ --convention=google
+      continue-on-error: true
+    
+    - name: Validate README
+      run: |
+        if [ -f README.md ]; then
+          echo "✅ README.md exists"
+          if [ $(wc -l < README.md) -gt 10 ]; then
+            echo "✅ README.md has substantial content"
+          else
+            echo "⚠️ README.md seems too short"
+          fi
+        else
+          echo "❌ README.md missing"
+          exit 1
+        fi
+    
+    - name: Check for required files
+      run: |
+        required_files=("requirements.txt" "rag/__init__.py" ".gitignore")
+        for file in "${required_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "✅ $file exists"
+          else
+            echo "❌ $file missing"
+            exit 1
+          fi
+        done 
