@@ -27,7 +27,7 @@ def run_all_tests(verbosity=2):
     loader = unittest.TestLoader()
     # Get the project root directory (parent of rag directory)
     current_dir = os.path.dirname(__file__)  # rag/tests
-    rag_dir = os.path.dirname(current_dir)   # rag
+    rag_dir = os.path.dirname(current_dir)  # rag
     project_root = os.path.dirname(rag_dir)  # project root
 
     suite = loader.discover(current_dir, pattern="test_*.py", top_level_dir=project_root)
