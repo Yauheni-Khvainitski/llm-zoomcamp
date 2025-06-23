@@ -198,6 +198,80 @@ class ElasticsearchClient:
             logger.error(f"Error counting documents: {e}")
             raise
 
+    def count_documents_with_query(self, index_name: str, query: Dict[str, Any]) -> int:
+        """
+        Count documents in an index with a query.
+
+        Args:
+            index_name: Index name (REQUIRED)
+            query: Query to filter documents
+
+        Returns:
+            Number of documents matching the query
+        """
+        try:
+            response = self.es.count(index=index_name, body=query)
+            return response["count"]
+        except Exception as e:
+            logger.error(f"Error counting documents with query: {e}")
+            raise
+
+    def get_document(self, doc_id: str, index_name: str) -> Union[Dict[str, Any], None]:
+        """
+        Get a document by ID.
+
+        Args:
+            doc_id: Document ID to retrieve
+            index_name: Index name (REQUIRED)
+
+        Returns:
+            Document if found, None if not found
+        """
+        try:
+            response = self.es.get(index=index_name, id=doc_id)
+            return response["_source"]
+        except NotFoundError:
+            logger.info(f"Document {doc_id} not found in index {index_name}")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting document {doc_id}: {e}")
+            raise
+
+    def delete_document(self, doc_id: str, index_name: str) -> bool:
+        """
+        Delete a document by ID.
+
+        Args:
+            doc_id: Document ID to delete
+            index_name: Index name (REQUIRED)
+
+        Returns:
+            True if document was deleted, False if not found
+        """
+        try:
+            self.es.delete(index=index_name, id=doc_id)
+            logger.info(f"Deleted document {doc_id} from index {index_name}")
+            return True
+        except NotFoundError:
+            logger.info(f"Document {doc_id} not found in index {index_name}")
+            return False
+        except Exception as e:
+            logger.error(f"Error deleting document {doc_id}: {e}")
+            raise
+
+    def health_check(self) -> bool:
+        """
+        Check if Elasticsearch is available.
+
+        Returns:
+            True if Elasticsearch is available
+        """
+        try:
+            return self.es.ping()
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return False
+
     def index_exists(self, index_name: str) -> bool:
         """
         Check if an index exists.
