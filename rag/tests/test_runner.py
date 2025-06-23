@@ -4,6 +4,7 @@ Comprehensive test runner for all RAG system components.
 This module provides functionality to run all tests with detailed reporting.
 """
 
+import os
 import sys
 import time
 import unittest
@@ -24,8 +25,12 @@ def run_all_tests(verbosity=2):
 
     # Discover and load all tests
     loader = unittest.TestLoader()
-    start_dir = "rag/tests"
-    suite = loader.discover(start_dir, pattern="test_*.py")
+    # Get the project root directory (parent of rag directory)
+    current_dir = os.path.dirname(__file__)  # rag/tests
+    rag_dir = os.path.dirname(current_dir)   # rag
+    project_root = os.path.dirname(rag_dir)  # project root
+    
+    suite = loader.discover(current_dir, pattern="test_*.py", top_level_dir=project_root)
 
     # Count total tests
     total_tests = suite.countTestCases()
@@ -127,6 +132,7 @@ class DetailedTestResult(unittest.TextTestResult):
     def __init__(self, stream, descriptions, verbosity):
         super().__init__(stream, descriptions, verbosity)
         self.test_start_time = None
+        self.verbosity = verbosity
 
     def startTest(self, test):
         super().startTest(test)
