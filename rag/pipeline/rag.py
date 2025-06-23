@@ -25,8 +25,8 @@ class RAGPipeline:
         self,
         es_url: str = ELASTICSEARCH_URL,
         index_name: str = DEFAULT_INDEX_NAME,
-        openai_api_key: str = None,
-        openai_model: str = None,
+        openai_api_key: Optional[str] = None,
+        openai_model: Optional[str] = None,
     ):
         """
         Initialize the RAG pipeline.
@@ -41,7 +41,7 @@ class RAGPipeline:
 
         # Initialize components
         self.document_loader = DocumentLoader()
-        self.es_client = ElasticsearchClient(es_url=es_url, index_name=index_name)
+        self.es_client = ElasticsearchClient(es_url=es_url)
         self.query_builder = QueryBuilder()
         self.context_formatter = ContextFormatter()
         self.llm_client = OpenAIClient(api_key=openai_api_key, model=openai_model)
@@ -62,7 +62,7 @@ class RAGPipeline:
         logger.info("Setting up Elasticsearch index...")
 
         # Create the index
-        self.es_client.create_index(delete_if_exists=delete_existing)
+        self.es_client.create_index(self.index_name, delete_if_exists=delete_existing)
 
         results = {"index_created": True, "documents_loaded": 0, "documents_indexed": 0}
 
@@ -72,7 +72,7 @@ class RAGPipeline:
             results["documents_loaded"] = len(documents)
 
             # Index documents
-            indexed_count = self.es_client.index_documents(documents)
+            indexed_count = self.es_client.index_documents(documents, self.index_name)
             results["documents_indexed"] = indexed_count
 
             logger.info(f"Setup complete: {indexed_count} documents indexed")
@@ -106,13 +106,13 @@ class RAGPipeline:
         )
 
         # Execute the search
-        results = self.es_client.search_documents(query, return_raw=return_raw)
+        results = self.es_client.search_documents(query, self.index_name, return_raw=return_raw)
 
         logger.debug(f"Search returned {len(results) if not return_raw else len(results['hits']['hits'])} results")
         return results
 
     def generate_response(
-        self, question: str, documents: List[Dict[str, Any]], model: str = None, include_context: bool = False
+        self, question: str, documents: List[Dict[str, Any]], model: Optional[str] = None, include_context: bool = False
     ) -> Dict[str, Any]:
         """
         Generate a response using the LLM.
@@ -149,7 +149,7 @@ class RAGPipeline:
         course_filter: Optional[Course] = None,
         num_results: int = 5,
         boost: int = 4,
-        model: str = None,
+        model: Optional[str] = None,
         debug: bool = False,
     ) -> str:
         """
@@ -183,7 +183,12 @@ class RAGPipeline:
             raise
 
     def ask_with_details(
-        self, question: str, course_filter: Optional[Course] = None, num_results: int = 5, boost: int = 4, model: str = None
+        self,
+        question: str,
+        course_filter: Optional[Course] = None,
+        num_results: int = 5,
+        boost: int = 4,
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Ask a question and get detailed response information.
@@ -253,14 +258,14 @@ class RAGPipeline:
             Dictionary with system statistics
         """
         try:
-            doc_count = self.es_client.count_documents()
+            doc_count = self.es_client.count_documents(self.index_name)
             doc_stats = self.document_loader.get_document_stats()
 
             return {
                 "elasticsearch": {
                     "index_name": self.index_name,
                     "document_count": doc_count,
-                    "index_exists": self.es_client.index_exists(),
+                    "index_exists": self.es_client.index_exists(self.index_name),
                 },
                 "documents": doc_stats,
                 "llm": {"model": self.llm_client.model},
@@ -280,7 +285,7 @@ class RAGPipeline:
 
         try:
             # Check Elasticsearch
-            health["elasticsearch"] = self.es_client.index_exists()
+            health["elasticsearch"] = self.es_client.index_exists(self.index_name)
         except Exception:
             health["elasticsearch"] = False
 

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class OpenAIClient:
     """Client for interacting with OpenAI's API."""
 
-    def __init__(self, api_key: str = None, model: str = OPENAI_MODEL, load_env: bool = True):
+    def __init__(self, api_key: Optional[str] = None, model: str = OPENAI_MODEL, load_env: bool = True):
         """
         Initialize the OpenAI client.
 
@@ -55,7 +55,7 @@ class OpenAIClient:
             logger.warning(f"Could not load .env file: {e}")
 
     def get_response(
-        self, prompt: str, model: str = None, temperature: float = 0.0, max_tokens: Optional[int] = None, **kwargs
+        self, prompt: str, model: Optional[str] = None, temperature: float = 0.0, max_tokens: Optional[int] = None, **kwargs
     ) -> str:
         """
         Get a response from OpenAI for the given prompt.
@@ -96,7 +96,7 @@ class OpenAIClient:
             logger.error(f"Error getting response from OpenAI: {e}")
             raise
 
-    def get_response_with_usage(self, prompt: str, model: str = None, **kwargs) -> Dict[str, Any]:
+    def get_response_with_usage(self, prompt: str, model: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         """
         Get a response from OpenAI with usage information.
 
@@ -144,7 +144,7 @@ class OpenAIClient:
         # Simple estimation: ~4 characters per token
         return len(text) // 4
 
-    def calculate_cost(self, prompt_tokens: int, completion_tokens: int, model: str = None) -> Dict[str, float]:
+    def calculate_cost(self, prompt_tokens: int, completion_tokens: int, model: Optional[str] = None) -> Dict[str, float]:
         """
         Calculate the cost of an API call.
 
