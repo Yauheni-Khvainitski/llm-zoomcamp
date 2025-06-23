@@ -159,7 +159,9 @@ class TestRAGPipeline(unittest.TestCase):
         result = pipeline.search("What is Docker?")
 
         # Verify search process
-        mock_qb.build_search_query.assert_called_once_with(question="What is Docker?", course_filter=None, num_results=5, boost=4)
+        mock_qb.build_search_query.assert_called_once_with(
+            question="What is Docker?", course_filter=None, num_results=5, boost=4
+        )
         mock_es.search_documents.assert_called_once_with(mock_query, "zoomcamp-courses-questions", return_raw=False)
         self.assertEqual(result, self.sample_documents)
 
@@ -187,7 +189,9 @@ class TestRAGPipeline(unittest.TestCase):
         pipeline = RAGPipeline()
         result = pipeline.search("What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP)
 
-        mock_qb.build_search_query.assert_called_once_with(question="What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP, num_results=5, boost=4)
+        mock_qb.build_search_query.assert_called_once_with(
+            question="What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP, num_results=5, boost=4
+        )
         self.assertEqual(result, self.sample_documents)
 
     @patch("rag.pipeline.rag.DocumentLoader")
