@@ -1,8 +1,4 @@
-"""
-Models package for RAG system.
-
-Contains data models and enums used throughout the application.
-"""
+"""Models package for RAG system."""
 
 from .course import Course
 

@@ -1,5 +1,4 @@
-"""
-RAG (Retrieval-Augmented Generation) Package
+"""RAG (Retrieval-Augmented Generation) Package.
 
 A comprehensive RAG system for Q&A over course documents using Elasticsearch and OpenAI.
 """

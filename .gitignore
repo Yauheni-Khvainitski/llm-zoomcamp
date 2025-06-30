@@ -9,3 +9,7 @@
 **/__pycache__/**
 
 documents.json
+
+qdrant_storage/
+
+.coverage
