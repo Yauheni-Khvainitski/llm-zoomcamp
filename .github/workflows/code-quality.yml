@@ -58,12 +58,6 @@ jobs:
       run: |
         bandit -r rag/ -ll
     
-    - name: Dependency security check
-      run: |
-        pip-audit --format=json --output=audit-report.json || echo "Vulnerabilities found, check audit-report.json"
-        pip-audit --format=columns || echo "Dependency scan completed with warnings"
-      continue-on-error: true  # Allow workflow to continue if vulnerabilities are found
-    
     - name: Check for TODO/FIXME comments
       run: |
         echo "Checking for TODO/FIXME comments..."

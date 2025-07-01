@@ -1,6 +1,4 @@
-"""
-Course enumeration for filtering search results.
-"""
+"""Course enumeration for RAG system."""
 
 from enum import Enum
 

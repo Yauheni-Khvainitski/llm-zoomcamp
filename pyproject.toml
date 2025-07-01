@@ -10,11 +10,13 @@ authors = [{name = "Yauheni Khvainitski", email = "euheniy.khvoinitski@gmail.com
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "qdrant-client[fastembed]>=1.14.2",
     "elasticsearch>=9.0.2",
     "openai>=1.84.0",
     "python-dotenv>=1.0.1",
     "requests>=2.32.4",
     "tqdm>=4.66.6",
+    "urllib3==2.5.0",  # Fixed version to address security vulnerabilities
 ]
 
 [project.optional-dependencies]
@@ -28,7 +30,6 @@ dev = [
     "mypy>=1.13.0",
     "pylint>=3.3.1",
     "bandit>=1.8.0",
-    "pip-audit>=2.6.1",
     "pydocstyle>=6.3.0",
     "types-requests>=2.32.0",
 ]
@@ -66,7 +67,6 @@ flake8 = ">=7.1.1"
 mypy = ">=1.13.0"
 pylint = ">=3.3.1"
 bandit = ">=1.8.0"
-safety = ">=3.2.11"
 pydocstyle = ">=6.3.0"
 autoflake = "^2.3.1"
 

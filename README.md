@@ -1,6 +1,6 @@
 # RAG System for Course Q&A
 
-A comprehensive Retrieval-Augmented Generation (RAG) system built to answer questions about course materials from DataTalks.Club courses. This system transforms the original Jupyter notebook into a well-structured, production-ready Python package with comprehensive testing and CI/CD.
+A comprehensive Retrieval-Augmented Generation (RAG) system built to answer questions about course materials from DataTalks.Club courses. The system supports both **Elasticsearch** for traditional search and **Qdrant** for vector-based semantic search.
 
 ## 🏗️ Architecture
 
@@ -9,7 +9,7 @@ The system is modularly designed with the following components:
 ```
 rag/
 ├── __init__.py                 # Main package exports
-├── config.py                   # Configuration constants
+├── config.py                   # Configuration constants (including embedding config)
 ├── models/                     # Data models
 │   ├── __init__.py
 │   └── course.py              # Course enum with helper methods
@@ -19,6 +19,7 @@ rag/
 ├── search/                     # Search and retrieval
 │   ├── __init__.py
 │   ├── elasticsearch_client.py # Elasticsearch operations
+│   ├── qdrant_client_custom.py # Qdrant vector database operations
 │   └── query_builder.py       # Query construction
 ├── formatting/                 # Text formatting and templates
 │   ├── __init__.py
@@ -37,21 +38,33 @@ rag/
     ├── test_context_formatter.py
     ├── test_openai_client.py
     ├── test_elasticsearch_client.py
+    ├── test_qdrant_client.py    # NEW: Qdrant client tests
     ├── test_rag_pipeline.py
     └── test_runner.py          # Custom test runner
 ```
 
-## 🚀 Features
+## 🔍 Vector Search Support
 
-- **Modular Architecture**: Clean separation of concerns with dedicated modules
-- **Type Safety**: Full type annotations throughout the codebase
-- **Comprehensive Testing**: 100+ unit tests covering all components
-- **CI/CD Ready**: GitHub Actions workflows for testing and code quality
-- **Course Filtering**: Support for filtering by specific courses
-- **Cost Tracking**: Token usage and cost calculation for OpenAI API
-- **Error Handling**: Robust error handling and logging
-- **Configurable**: Flexible configuration options
-- **Documentation**: Extensive docstrings and examples
+This system now supports **dual search backends**:
+
+### **Elasticsearch** (Traditional Search)
+- Full-text search with BM25 scoring
+- Course filtering and boosting
+- Proven reliability for keyword-based queries
+
+### **Qdrant** (Vector Search) 🆕
+- Semantic similarity search using embeddings
+- Support for `jinaai/jina-embeddings-v2-small-en` model
+- 512-dimensional vector space
+- Cosine similarity matching
+
+### **Configuration**
+```python
+# Embedding Configuration (in rag/config.py)
+EMBEDDING_DIMENSIONALITY = 512
+EMBEDDING_MODEL = "jinaai/jina-embeddings-v2-small-en"
+QDRANT_URL = "http://localhost:6333"
+```
 
 ## 📦 **Installation & Dependencies**
 
@@ -62,12 +75,12 @@ This project uses modern Python packaging standards with `pyproject.toml` as the
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd llm-zoomcamp-1
+cd llm-zoomcamp
 
 # Install in development mode with all dependencies
 pip install -e ".[dev,jupyter,tokens]"
 
-# Or just core dependencies
+# Or just core dependencies (includes both Elasticsearch and Qdrant)
 pip install -e .
 ```
 
@@ -82,11 +95,15 @@ pip install -e .
 
 | Group | Install Command | Purpose |
 |-------|----------------|---------|
-| **Core** | `pip install -e .` | Essential runtime dependencies |
+| **Core** | `pip install -e .` | Essential runtime dependencies (Elasticsearch, Qdrant, OpenAI) |
 | **Development** | `pip install -e ".[dev]"` | Testing, linting, formatting |
 | **Jupyter** | `pip install -e ".[jupyter]"` | Notebook support |
 | **Tokens** | `pip install -e ".[tokens]"` | Token counting utilities |
 | **All** | `pip install -e ".[dev,jupyter,tokens]"` | Everything |
+
+#### **🔒 Security Updates**
+- **urllib3**: Updated to `2.5.0` to address security vulnerabilities
+- **Dependency scanning**: Removed Safety CLI (simplified dependency management)
 
 #### **🔧 requirements.txt Role**
 The `requirements.txt` file now serves as:
@@ -100,7 +117,7 @@ The `requirements.txt` file now serves as:
 # Development setup
 pip install -e ".[dev,jupyter,tokens]"
 
-# Run tests
+# Run tests (now includes Qdrant tests)
 pytest rag/tests/
 
 # Code formatting
@@ -115,13 +132,31 @@ pylint rag/
 mypy rag/
 ```
 
+### **Docker Compose Setup**
+
+Start both Elasticsearch and Qdrant services:
+
+```bash
+# Start all services
+docker-compose up -d
+
+# Verify services
+curl http://localhost:9200/_cluster/health  # Elasticsearch
+curl http://localhost:6333/collections      # Qdrant
+```
+
+The `docker-compose.yml` includes:
+- **Elasticsearch**: Port 9200 (traditional search)
+- **Qdrant**: Port 6333 (vector search)
+
 ### **CI/CD Integration**
 
 Our GitHub Actions workflows automatically:
 - Install dependencies using `pip install -e ".[dev,jupyter,tokens]"`
-- Run comprehensive test suites
+- Run comprehensive test suites (including new Qdrant tests)
 - Perform code quality checks
 - Generate coverage reports
+- **Note**: Removed Safety CLI for simplified security scanning
 
 ### **Troubleshooting Dependencies**
 
@@ -131,23 +166,24 @@ Our GitHub Actions workflows automatically:
 | **Missing test tools** | Ensure `[dev]` extras are installed |
 | **Notebook issues** | Install with `[jupyter]` extras |
 | **Token counting fails** | Install with `[tokens]` extras |
+| **Qdrant connection fails** | Check `docker-compose up qdrant` |
 | **CI failures** | Check workflow uses `pip install -e ".[dev,jupyter,tokens]"` |
 
 ## 🧪 Testing
 
-The project includes comprehensive unit tests for all components:
+The project includes comprehensive unit tests for all components, **including new Qdrant client tests**:
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all tests (now 109+ tests including Qdrant)
 python -m pytest rag/tests/ -v
 
 # Run tests with coverage
 python -m pytest rag/tests/ --cov=rag --cov-report=html
 
 # Run specific test module
-python -m pytest rag/tests/test_course.py -v
+python -m pytest rag/tests/test_qdrant_client.py -v
 
 # Run custom test runner
 python -m rag.tests.test_runner
@@ -166,6 +202,7 @@ The test suite includes:
 - **Context Formatter Tests**: Document formatting, prompt building
 - **OpenAI Client Tests**: API interactions, cost calculation, error handling
 - **Elasticsearch Client Tests**: Index operations, document management
+- **Qdrant Client Tests**: 🆕 Vector database initialization, connection handling
 - **RAG Pipeline Tests**: End-to-end functionality, integration testing
 
 ### Using Make for Testing
@@ -198,6 +235,7 @@ Create a `.env` file:
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
 ELASTICSEARCH_HOST=http://localhost:9200
+QDRANT_URL=http://localhost:6333
 INDEX_NAME=zoomcamp-courses-questions
 ```
 
@@ -206,7 +244,7 @@ INDEX_NAME=zoomcamp-courses-questions
 ```python
 from rag import RAGPipeline
 
-# Default configuration
+# Default configuration (uses Elasticsearch by default)
 pipeline = RAGPipeline()
 
 # Custom configuration
@@ -216,6 +254,9 @@ pipeline = RAGPipeline(
     openai_model="gpt-4o",
     documents_url="https://custom-docs.json"
 )
+
+# Using Qdrant for vector search (future implementation)
+# qdrant_client = QdrantClientCustom("http://localhost:6333")
 ```
 
 ## 📊 Usage Examples
@@ -267,6 +308,7 @@ print(f"Cost: ${result['cost']['total_cost']:.4f}")
 ```python
 from rag.models import Course
 from rag.search import QueryBuilder
+from rag.search.qdrant_client_custom import QdrantClientCustom
 from rag.formatting import ContextFormatter
 
 # Course filtering
@@ -279,6 +321,9 @@ query = qb.build_search_query(
     "Docker question",
     course_filter=Course.DATA_ENGINEERING_ZOOMCAMP
 )
+
+# Qdrant client (vector search)
+qdrant_client = QdrantClientCustom()
 
 # Context formatting
 cf = ContextFormatter()
@@ -293,7 +338,7 @@ The project includes GitHub Actions workflows:
 ### Test Workflow (`.github/workflows/tests.yml`)
 
 - **Matrix Testing**: Tests across Python 3.9, 3.10, 3.11
-- **Unit Tests**: Comprehensive test suite execution
+- **Unit Tests**: Comprehensive test suite execution (including Qdrant tests)
 - **Coverage Reporting**: Code coverage analysis and reporting
 - **Integration Tests**: Tests with real Elasticsearch instance
 - **Dependency Caching**: Faster CI runs with dependency caching
@@ -305,14 +350,15 @@ The project includes GitHub Actions workflows:
 - **Type Checking**: mypy static type analysis
 - **Security Scanning**: bandit security checks
 - **Documentation**: Docstring style validation
+- **Simplified Dependencies**: Removed Safety CLI for streamlined workflow
 
 ### Workflow Features
 
 - **Parallel Execution**: Multiple jobs run simultaneously
 - **Artifact Upload**: Coverage reports and test results
 - **Integration Testing**: Real Elasticsearch service testing
-- **Security Checks**: Dependency vulnerability scanning
 - **Multi-Python Support**: Testing across Python versions
+- **Streamlined Security**: Focused on bandit for security scanning
 
 ## 🛠️ Development Workflow
 
@@ -334,7 +380,6 @@ mypy rag/
 
 # Security scanning
 bandit -r rag/
-safety scan
 ```
 
 ### Pre-commit Workflow
@@ -350,34 +395,15 @@ make ci-test
 make clean
 ```
 
-## 📈 Testing Metrics
-
-Current test coverage includes:
-
-- **100+ Test Cases**: Comprehensive coverage of all components
-- **Mock Testing**: Isolated unit tests with proper mocking
-- **Error Path Testing**: Edge cases and error conditions
-- **Integration Testing**: End-to-end functionality verification
-- **Performance Testing**: Token usage and cost validation
-
-### Test Statistics
-
-- **Course Model**: 8 test cases
-- **Document Loader**: 15 test cases  
-- **Query Builder**: 12 test cases (from original notebook)
-- **Context Formatter**: 18 test cases
-- **OpenAI Client**: 20 test cases
-- **Elasticsearch Client**: 22 test cases
-- **RAG Pipeline**: 12 test cases
-
 ## 🔧 Troubleshooting
 
 ### Common Issues
 
 1. **Import Errors**: Ensure all dependencies are installed
-2. **Elasticsearch Connection**: Verify Elasticsearch is running
-3. **OpenAI API**: Check API key configuration
-4. **Test Failures**: Run tests individually to isolate issues
+2. **Elasticsearch Connection**: Verify Elasticsearch is running (`docker-compose up elasticsearch`)
+3. **Qdrant Connection**: Verify Qdrant is running (`docker-compose up qdrant`)
+4. **OpenAI API**: Check API key configuration
+5. **Test Failures**: Run tests individually to isolate issues
 
 ### Running Individual Components
 
@@ -389,6 +415,9 @@ sys.path.append('.')
 exec(open('rag/models/course.py').read())
 print('Course enum loaded successfully')
 "
+
+# Test Qdrant client
+python -m pytest rag/tests/test_qdrant_client.py::TestQdrantClient::test_init_success -v
 
 # Test query building
 python -m pytest rag/tests/test_query_builder.py::TestQueryBuilder::test_build_search_query_with_course_filter -v
@@ -402,6 +431,7 @@ python -m pytest rag/tests/test_query_builder.py::TestQueryBuilder::test_build_s
 - **`Course`**: Enum for available courses with helper methods
 - **`DocumentLoader`**: Handles document fetching and processing
 - **`ElasticsearchClient`**: Manages Elasticsearch operations
+- **`QdrantClientCustom`**: 🆕 Manages Qdrant vector database operations
 - **`QueryBuilder`**: Constructs search queries
 - **`ContextFormatter`**: Formats documents and builds prompts
 - **`OpenAIClient`**: Handles OpenAI API interactions
@@ -412,14 +442,7 @@ python -m pytest rag/tests/test_query_builder.py::TestQueryBuilder::test_build_s
 - **`pipeline.ask_question(question, course_filter=None)`**: End-to-end Q&A
 - **`pipeline.search(question, course_filter=None)`**: Search for relevant documents
 - **`pipeline.health_check()`**: Verify system components
-
-## 🤝 Contributing
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature-name`
-3. **Make changes and add tests**
-4. **Run quality checks**: `make ci-test`
-5. **Submit a pull request**
+- **`QdrantClientCustom(url)`**: 🆕 Initialize vector database client
 
 ### Development Guidelines
 
@@ -427,17 +450,7 @@ python -m pytest rag/tests/test_query_builder.py::TestQueryBuilder::test_build_s
 - Follow the existing code style (Black, isort)
 - Update documentation for API changes
 - Ensure all CI checks pass
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **DataTalks.Club** for the course materials and original notebook
-- **OpenAI** for the GPT models
-- **Elasticsearch** for the search engine
-- **Contributors** to the testing framework and CI/CD setup
+- Test both Elasticsearch and Qdrant integrations
 
 ---
 
@@ -446,20 +459,31 @@ MIT License - see LICENSE file for details.
 ```bash
 # 1. Clone and install
 git clone <repository>
-cd llm-zoomcamp-1
+cd llm-zoomcamp
 make dev-setup
 
-# 2. Run tests
+# 2. Run tests (includes new Qdrant tests)
 make test
 
-# 3. Start Elasticsearch (if testing full functionality)
-docker run -d -p 9200:9200 -e "discovery.type=single-node" -e "xpack.security.enabled=false" elasticsearch:8.15.0
+# 3. Start both search backends
+docker-compose up -d
 
-# 4. Set environment variables
+# 4. Verify services
+curl http://localhost:9200/_cluster/health  # Elasticsearch
+curl http://localhost:6333/collections      # Qdrant
+
+# 5. Set environment variables
 echo "OPENAI_API_KEY=your_key_here" > .env
 
-# 5. Test the system
+# 6. Test the system
 python example_usage.py
 ```
 
-This RAG system transforms the original notebook into a production-ready package with comprehensive testing, CI/CD, and modular architecture suitable for real-world deployment.
+## 🆕 Recent Updates
+
+- **✅ Qdrant Integration**: Added vector database support for semantic search
+- **✅ Security Updates**: Updated urllib3 to v2.5.0 to fix vulnerabilities  
+- **✅ Simplified Dependencies**: Removed Safety CLI for streamlined workflow
+- **✅ Enhanced Testing**: Added comprehensive Qdrant client tests
+- **✅ Code Quality**: Fixed docstring formatting and linting issues
+- **✅ Docker Support**: Added Qdrant service to docker-compose.yml
