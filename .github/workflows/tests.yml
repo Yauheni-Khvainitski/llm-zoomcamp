@@ -168,15 +168,16 @@ jobs:
         print(f'✅ Processed {len(processed)} test documents')
         
         # Test Elasticsearch operations
-        es_client = ElasticsearchClient('http://localhost:9200', 'test-index')
-        es_client.create_index()
-        indexed = es_client.index_documents(processed)
+        es_client = ElasticsearchClient('http://localhost:9200')
+        index_name = 'test-index'
+        es_client.create_index(index_name)
+        indexed = es_client.index_documents(processed, index_name)
         print(f'✅ Indexed {indexed} documents')
         
         # Test search
         query_builder = QueryBuilder()
         query = query_builder.build_search_query('Test question')
-        results = es_client.search_documents(query)
+        results = es_client.search_documents(query, index_name)
         print(f'✅ Search returned {len(results)} results')
         
         # Test formatting
