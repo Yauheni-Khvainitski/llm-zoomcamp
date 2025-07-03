@@ -5,7 +5,7 @@ Handles formatting documents into context strings and building prompts for LLMs.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ContextFormatter:
     """Formats documents into context strings and builds prompts for LLMs."""
 
-    def __init__(self, context_template: str = None, prompt_template: str = None):
+    def __init__(self, context_template: Optional[str] = None, prompt_template: Optional[str] = None):
         """
         Initialize the context formatter.
 

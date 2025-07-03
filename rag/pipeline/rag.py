@@ -5,7 +5,7 @@ Orchestrates document loading, indexing, searching, and response generation.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ..config import DEFAULT_INDEX_NAME, ELASTICSEARCH_URL
 from ..data.loader import DocumentLoader
@@ -86,7 +86,7 @@ class RAGPipeline:
         num_results: int = 5,
         boost: int = 4,
         return_raw: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Search for relevant documents.
 
@@ -109,11 +109,11 @@ class RAGPipeline:
         results = self.es_client.search_documents(query, self.index_name, return_raw=return_raw)
 
         if return_raw:
-            logger.debug(f"Search returned {len(results['hits']['hits'])} results")  # type: ignore[index]
-            return results  # type: ignore[return-value]
+            logger.debug(f"Search returned {len(results['hits']['hits'])} results")  # type: ignore[call-overload]
+            return results
         else:
-            logger.debug(f"Search returned {len(results)} results")  # type: ignore[arg-type]
-            return results  # type: ignore[return-value]
+            logger.debug(f"Search returned {len(results)} results")
+            return results
 
     def generate_response(
         self, question: str, documents: List[Dict[str, Any]], model: Optional[str] = None, include_context: bool = False
@@ -172,7 +172,10 @@ class RAGPipeline:
         """
         try:
             # Search for relevant documents
-            documents = self.search(question=question, course_filter=course_filter, num_results=num_results, boost=boost)
+            search_result = self.search(question=question, course_filter=course_filter, num_results=num_results, boost=boost)
+            if not isinstance(search_result, list):
+                raise ValueError("Expected list when return_raw=False")
+            documents = search_result
 
             # Generate response
             result = self.generate_response(question=question, documents=documents, model=model, include_context=debug)
@@ -180,7 +183,7 @@ class RAGPipeline:
             if debug:
                 self._print_debug_info(question, documents, result, course_filter)
 
-            return result["response"]
+            return result["response"]  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.error(f"Error in RAG pipeline: {e}")
@@ -212,7 +215,7 @@ class RAGPipeline:
             question=question, course_filter=course_filter, num_results=num_results, boost=boost, return_raw=True
         )
 
-        documents = [hit["_source"] for hit in search_raw["hits"]["hits"]]  # type: ignore[index]
+        documents = [hit["_source"] for hit in search_raw["hits"]["hits"]]  # type: ignore[call-overload]
 
         # Generate response with context
         response_result = self.generate_response(question=question, documents=documents, model=model, include_context=True)
@@ -221,8 +224,8 @@ class RAGPipeline:
             "question": question,
             "response": response_result["response"],
             "search_results": {
-                "total_hits": search_raw["hits"]["total"]["value"],  # type: ignore[index]
-                "max_score": search_raw["hits"]["max_score"],  # type: ignore[index]
+                "total_hits": search_raw["hits"]["total"]["value"],  # type: ignore[call-overload]
+                "max_score": search_raw["hits"]["max_score"],  # type: ignore[call-overload]
                 "documents": documents,
             },
             "context": response_result["context"],

@@ -58,7 +58,7 @@ class DocumentLoader:
             response = requests.get(self.documents_url, timeout=30)
             response.raise_for_status()
             data = response.json()
-            return data  # type: ignore[return-value]
+            return data  # type: ignore[no-any-return]
         except requests.RequestException as e:
             logger.error(f"Failed to fetch documents: {e}")
             raise

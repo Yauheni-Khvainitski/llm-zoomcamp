@@ -5,7 +5,7 @@ Handles connection to Elasticsearch, index management, and document operations.
 """
 
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
@@ -47,7 +47,7 @@ class ElasticsearchClient:
         """
         return self.es
 
-    def create_index(self, index_name: str, settings: Dict[str, Any] = None, delete_if_exists: bool = False) -> bool:
+    def create_index(self, index_name: str, settings: Optional[Dict[str, Any]] = None, delete_if_exists: bool = False) -> bool:
         """
         Create an Elasticsearch index.
 
@@ -107,7 +107,7 @@ class ElasticsearchClient:
             logger.error(f"Error deleting index '{index_name}': {e}")
             raise
 
-    def index_document(self, document: Dict[str, Any], index_name: str, doc_id: str = None) -> bool:
+    def index_document(self, document: Dict[str, Any], index_name: str, doc_id: Optional[str] = None) -> bool:
         """
         Index a single document.
 
@@ -193,7 +193,7 @@ class ElasticsearchClient:
         """
         try:
             response = self.es.count(index=index_name)
-            return response["count"]  # type: ignore[return-value]
+            return response["count"]  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Error counting documents: {e}")
             raise
@@ -211,7 +211,7 @@ class ElasticsearchClient:
         """
         try:
             response = self.es.count(index=index_name, body=query)
-            return response["count"]  # type: ignore[return-value]
+            return response["count"]  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Error counting documents with query: {e}")
             raise
@@ -229,7 +229,7 @@ class ElasticsearchClient:
         """
         try:
             response = self.es.get(index=index_name, id=doc_id)
-            return response["_source"]  # type: ignore[return-value]
+            return response["_source"]  # type: ignore[no-any-return]
         except NotFoundError:
             logger.info(f"Document {doc_id} not found in index {index_name}")
             return None
@@ -267,7 +267,7 @@ class ElasticsearchClient:
             True if Elasticsearch is available
         """
         try:
-            return self.es.ping()  # type: ignore[return-value]
+            return self.es.ping()
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return False
@@ -283,6 +283,6 @@ class ElasticsearchClient:
             True if index exists
         """
         logger.info(f"Checking if index '{index_name}' exists")
-        exists = self.es.indices.exists(index=index_name)
+        exists = bool(self.es.indices.exists(index=index_name))
         logger.info(f"Index {index_name} exists: {exists}")
         return exists

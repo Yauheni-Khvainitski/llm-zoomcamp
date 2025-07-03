@@ -3,16 +3,20 @@
 import os
 from typing import Any, Dict
 
+from qdrant_client.models import Distance
+
 # Elasticsearch Configuration
 ELASTICSEARCH_URL = "http://localhost:9200"
 DEFAULT_INDEX_NAME = "zoomcamp-courses-questions"
 
 # Qdrant Configuration
 QDRANT_URL = "http://localhost:6333"
+DEFAULT_COLLECTION_NAME = "zoomcamp-courses-questions"
 
 # Embedding Configuration
 EMBEDDING_DIMENSIONALITY = 512
-EMBEDDING_MODEL = "jinaai/jina-embeddings-v2-small-en"  # Default embedding model
+EMBEDDING_MODEL = "jinaai/jina-embeddings-v2-small-en"
+EMBEDDING_SIMILARITY_DISTANCE = Distance.COSINE
 
 # Document Source Configuration
 DOCUMENTS_URL = "https://github.com/DataTalksClub/llm-zoomcamp/blob/main/01-intro/documents.json?raw=1"

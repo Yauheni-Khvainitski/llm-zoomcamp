@@ -36,11 +36,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev,jupyter,tokens]"
     
-    - name: Lint with flake8 (optional)
+    - name: Check for critical Python syntax errors
       run: |
         pip install flake8
-        # Stop the build if there are Python syntax errors or undefined names
+        # Stop the build if there are Python syntax errors or undefined names - BLOCKING
         flake8 rag --count --select=E9,F63,F7,F82 --show-source --statistics
+    
+    - name: Lint with flake8 (optional warnings)
+      run: |
         # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 rag --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       continue-on-error: true

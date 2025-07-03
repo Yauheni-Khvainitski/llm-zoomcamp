@@ -4454,17 +4454,32 @@ files = [
 name = "types-requests"
 version = "2.32.4.20250611"
 description = "Typing stubs for requests"
-optional = true
+optional = false
 python-versions = ">=3.9"
-groups = ["main"]
-markers = "extra == \"dev\""
+groups = ["main", "dev"]
 files = [
     {file = "types_requests-2.32.4.20250611-py3-none-any.whl", hash = "sha256:ad2fe5d3b0cb3c2c902c8815a70e7fb2302c4b8c1f77bdcd738192cdb3878072"},
     {file = "types_requests-2.32.4.20250611.tar.gz", hash = "sha256:741c8777ed6425830bf51e54d6abe245f79b4dcb9019f1622b773463946bf826"},
 ]
+markers = {main = "extra == \"dev\""}
 
 [package.dependencies]
 urllib3 = ">=2"
+
+[[package]]
+name = "types-tqdm"
+version = "4.67.0.20250516"
+description = "Typing stubs for tqdm"
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "types_tqdm-4.67.0.20250516-py3-none-any.whl", hash = "sha256:1dd9b2c65273f2342f37e5179bc6982df86b6669b3376efc12aef0a29e35d36d"},
+    {file = "types_tqdm-4.67.0.20250516.tar.gz", hash = "sha256:230ccab8a332d34f193fc007eb132a6ef54b4512452e718bf21ae0a7caeb5a6b"},
+]
+
+[package.dependencies]
+types-requests = "*"
 
 [[package]]
 name = "typing-extensions"
@@ -4499,7 +4514,7 @@ version = "2.5.0"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "jupyter", "tokens"]
+groups = ["main", "dev", "jupyter", "tokens"]
 files = [
     {file = "urllib3-2.5.0-py3-none-any.whl", hash = "sha256:e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc"},
     {file = "urllib3-2.5.0.tar.gz", hash = "sha256:3fc47733c7e419d4bc3f6b3dc2b4f890bb743906a30d56ba4a5bfa4bbff92760"},
@@ -4621,4 +4636,4 @@ tokens = ["tiktoken"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "89dc95e1c6cb46786f3106fe4dc407024445edd77a6107a5003c3c7592b57a31"
+content-hash = "0ab200fa05befe30371abf3c1b52dc447609bf42bd5d0d9795594bf7c48a4982"

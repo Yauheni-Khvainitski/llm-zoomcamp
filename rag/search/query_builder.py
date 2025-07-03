@@ -28,7 +28,11 @@ class QueryBuilder:
         self.default_boost = default_boost
 
     def build_search_query(
-        self, question: str, course_filter: Optional[Course] = None, num_results: int = None, boost: int = None
+        self,
+        question: str,
+        course_filter: Optional[Course] = None,
+        num_results: Optional[int] = None,
+        boost: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Build an Elasticsearch search query.
@@ -67,7 +71,7 @@ class QueryBuilder:
 
         return search_query
 
-    def build_match_all_query(self, num_results: int = None) -> Dict[str, Any]:
+    def build_match_all_query(self, num_results: Optional[int] = None) -> Dict[str, Any]:
         """
         Build a query that matches all documents.
 
@@ -82,7 +86,7 @@ class QueryBuilder:
 
         return {"size": num_results, "query": {"match_all": {}}}
 
-    def build_term_query(self, field: str, value: str, num_results: int = None) -> Dict[str, Any]:
+    def build_term_query(self, field: str, value: str, num_results: Optional[int] = None) -> Dict[str, Any]:
         """
         Build a simple term query for exact matches.
 

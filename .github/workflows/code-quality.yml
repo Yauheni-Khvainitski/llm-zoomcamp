@@ -46,8 +46,7 @@ jobs:
     
     - name: Type checking with mypy
       run: |
-        mypy rag/ --ignore-missing-imports --no-strict-optional
-      continue-on-error: true  # Type checking can be strict
+        mypy rag/
     
     - name: Lint with pylint
       run: |
