@@ -43,15 +43,14 @@ class QdrantClientCustom:
         distance: Distance = Distance.COSINE,
         delete_if_exists: bool = False,
     ) -> bool:
-        """
-        Create a Qdrant collection.
+        """Create a Qdrant collection.
 
         Args:
             collection_name: Name of the collection to create (REQUIRED)
-            settings: Collection settings and mappings
+            vector_size: Size of the vectors to be stored in the collection
+            distance: Distance metric to use for similarity search
             delete_if_exists: Whether to delete existing collection (DANGEROUS - will delete all data!)
         """
-
         # Safety check: warn about destructive operation
         if delete_if_exists and self.collection_exists(collection_name):
             logger.warning(
