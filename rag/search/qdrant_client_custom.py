@@ -3,9 +3,9 @@
 import logging
 from typing import Optional
 
-from qdrant_client import QdrantClient  # type: ignore
-from qdrant_client.http.exceptions import UnexpectedResponse  # type: ignore
-from qdrant_client.models import Distance, VectorParams  # type: ignore
+from qdrant_client import QdrantClient
+from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.models import Distance, VectorParams
 
 from ..config import QDRANT_URL
 

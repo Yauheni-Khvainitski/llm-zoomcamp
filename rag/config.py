@@ -3,7 +3,7 @@
 import os
 from typing import Any, Dict
 
-from qdrant_client.models import Distance  # type: ignore
+from qdrant_client.models import Distance
 
 # Elasticsearch Configuration
 ELASTICSEARCH_URL = "http://localhost:9200"
