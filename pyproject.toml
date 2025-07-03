@@ -32,6 +32,7 @@ dev = [
     "bandit>=1.8.0",
     "pydocstyle>=6.3.0",
     "types-requests>=2.32.0",
+    "types-tqdm>=4.67.0",
 ]
 jupyter = [
     "jupyter>=1.1.1",
@@ -174,6 +175,8 @@ module = [
     "rag.llm.openai_client",
     "rag.tests.*",
     "example_usage",
+    "qdrant_client",
+    "qdrant_client.*",
 ]
 ignore_errors = true
 
