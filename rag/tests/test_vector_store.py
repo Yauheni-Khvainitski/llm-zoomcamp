@@ -8,7 +8,7 @@ import pytest
 from qdrant_client.models import Distance, PointStruct
 
 from rag.data.loader import DocumentLoader
-from rag.data.vector_store import QdrantVectorLoader, VectorStoreLoader
+from rag.data.vector_store import QdrantVectorLoader, VectorSearcher, VectorStoreLoader
 from rag.search.qdrant_client_custom import QdrantClientCustom
 
 
@@ -295,9 +295,11 @@ class TestQdrantVectorLoader:
         assert result["documents_loaded"] == 2
         assert result["points_uploaded"] == 2
         assert result["course_filter"] is None
+        assert result["payload_index_created"] is True
 
-        # Verify collection creation was called
+        # Verify collection creation and payload index creation were called
         self.qdrant_loader.vector_store.qdrant_client.create_collection.assert_called_once()
+        self.qdrant_loader.vector_store.qdrant_client.create_payload_index.assert_called_once()
 
     @patch("rag.data.vector_store.TextEmbedding")
     def test_setup_collection_with_course_filter(self, mock_text_embedding):
@@ -315,6 +317,7 @@ class TestQdrantVectorLoader:
         assert result["documents_loaded"] == 1  # Only one document matches filter
         assert result["points_uploaded"] == 1
         assert result["course_filter"] == "test-course"
+        assert result["payload_index_created"] is True
 
     def test_setup_collection_document_loading_failure(self):
         """Test collection setup with document loading failure."""
@@ -341,12 +344,18 @@ class TestQdrantVectorLoader:
         """Test collection setup with delete_if_exists flag."""
         self.mock_document_loader.load_documents.return_value = []
 
-        self.qdrant_loader.setup_collection("test-collection", delete_if_exists=True)
+        result = self.qdrant_loader.setup_collection("test-collection", delete_if_exists=True)
+
+        # Verify payload index was created
+        assert result["payload_index_created"] is True
 
         # Verify create_collection was called with delete_if_exists=True
         self.qdrant_loader.vector_store.qdrant_client.create_collection.assert_called_once_with(
             collection_name="test-collection", vector_size=512, distance=Distance.COSINE, delete_if_exists=True
         )
+
+        # Verify payload index creation was called
+        self.qdrant_loader.vector_store.qdrant_client.create_payload_index.assert_called_once()
 
 
 class TestIntegration:
@@ -418,11 +427,335 @@ class TestIntegration:
         assert result["collection_name"] == "integration-test"
         assert result["documents_loaded"] == 1
         assert result["points_uploaded"] == 1
+        assert result["payload_index_created"] is True
 
         # Verify all components were called
         mock_document_loader.load_documents.assert_called_once()
         qdrant_loader.vector_store.qdrant_client.create_collection.assert_called_once()
+        qdrant_loader.vector_store.qdrant_client.create_payload_index.assert_called_once()
         self.mock_qdrant_client.qdrant.upsert.assert_called_once()
+
+
+class TestVectorSearcher:
+    """Test cases for VectorSearcher class."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.mock_qdrant_client = Mock(spec=QdrantClientCustom)
+        self.mock_qdrant_client.qdrant = Mock()
+        self.vector_searcher = VectorSearcher(embedding_model="test-embedding-model", qdrant_client=self.mock_qdrant_client)
+
+    def test_init_default_dependencies(self):
+        """Test initialization with default dependencies."""
+        with patch("rag.data.vector_store.QdrantClientCustom") as mock_qdrant_client:
+            searcher = VectorSearcher()
+
+            mock_qdrant_client.assert_called_once()
+            assert searcher.qdrant_client is not None
+            assert searcher.vector_store is not None
+
+    def test_init_custom_dependencies(self):
+        """Test initialization with custom dependencies."""
+        custom_qdrant_client = Mock(spec=QdrantClientCustom)
+
+        searcher = VectorSearcher(embedding_model="custom-model", qdrant_client=custom_qdrant_client)
+
+        assert searcher.qdrant_client is custom_qdrant_client
+        assert searcher.vector_store is not None
+
+    def test_embed_query_success(self):
+        """Test successful query embedding."""
+        # Mock the embedding model
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [[0.1, 0.2, 0.3, 0.4, 0.5]]
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        query = "What is Docker?"
+        result = self.vector_searcher.embed_query(query)
+
+        # Verify embedding was called correctly
+        mock_embedding_model.embed.assert_called_once_with([query])
+        self.vector_searcher.vector_store.get_embedding_model.assert_called_once()
+        assert result == [0.1, 0.2, 0.3, 0.4, 0.5]
+
+    def test_embed_query_empty_query(self):
+        """Test embedding with empty query."""
+        with pytest.raises(ValueError) as exc_info:
+            self.vector_searcher.embed_query("")
+
+        assert "Query cannot be empty" in str(exc_info.value)
+
+    def test_embed_query_whitespace_only(self):
+        """Test embedding with whitespace-only query."""
+        with pytest.raises(ValueError) as exc_info:
+            self.vector_searcher.embed_query("   ")
+
+        assert "Query cannot be empty" in str(exc_info.value)
+
+    def test_embed_query_numpy_array_handling(self):
+        """Test embedding with numpy array return value."""
+        # Mock numpy array-like object
+        mock_numpy_array = Mock()
+        mock_numpy_array.tolist.return_value = [0.1, 0.2, 0.3]
+
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [mock_numpy_array]
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        result = self.vector_searcher.embed_query("test query")
+
+        # Should handle numpy array conversion
+        mock_numpy_array.tolist.assert_called_once()
+        assert result == [0.1, 0.2, 0.3]
+
+    def test_embed_query_embedding_failure(self):
+        """Test embedding failure handling."""
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.side_effect = Exception("Embedding failed")
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            self.vector_searcher.embed_query("test query")
+
+        assert "Query embedding generation failed" in str(exc_info.value)
+
+    def test_search_success(self):
+        """Test successful vector search with text query."""
+        # Mock embedding generation
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [[0.1, 0.2, 0.3]]
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        # Mock search results
+        mock_search_results = [
+            {"id": "doc_1", "payload": {"text": "Docker is a containerization platform", "score": 0.95}, "score": 0.95}
+        ]
+        self.mock_qdrant_client.search_with_vector.return_value = mock_search_results
+
+        query = "What is Docker?"
+        result = self.vector_searcher.search(query, collection_name="test-collection", limit=5)
+
+        # Verify embedding was generated
+        mock_embedding_model.embed.assert_called_once_with([query])
+
+        # Verify search was called with correct parameters
+        self.mock_qdrant_client.search_with_vector.assert_called_once_with(
+            query_vector=[0.1, 0.2, 0.3],
+            collection_name="test-collection",
+            limit=5,
+            course_filter=None,
+            score_threshold=None,
+            with_payload=True,
+        )
+
+        assert result == mock_search_results
+
+    def test_search_with_course_filter(self):
+        """Test vector search with course filter."""
+        # Mock embedding generation
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [[0.1, 0.2, 0.3]]
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        # Mock search results
+        mock_search_results = [{"id": "doc_1", "payload": {"course": "docker-course"}}]
+        self.mock_qdrant_client.search_with_vector.return_value = mock_search_results
+
+        result = self.vector_searcher.search(
+            "What is Docker?", collection_name="test-collection", limit=3, course_filter="docker-course"
+        )
+
+        # Verify search was called with course filter
+        call_args = self.mock_qdrant_client.search_with_vector.call_args
+        assert call_args[1]["course_filter"] == "docker-course"
+        assert result == mock_search_results
+
+    def test_search_default_parameters(self):
+        """Test search with default parameters."""
+        # Mock embedding generation
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [[0.1, 0.2, 0.3]]
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        self.mock_qdrant_client.search_with_vector.return_value = []
+
+        self.vector_searcher.search("test query", collection_name="test-collection")
+
+        # Verify default parameters were used
+        call_args = self.mock_qdrant_client.search_with_vector.call_args
+        assert call_args[1]["limit"] == 5  # default limit
+        assert call_args[1]["with_payload"] is True  # default with_payload
+
+    def test_search_embedding_failure(self):
+        """Test search with embedding failure."""
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.side_effect = Exception("Embedding failed")
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            self.vector_searcher.search("test query", collection_name="test-collection")
+
+        assert "Search failed" in str(exc_info.value)
+
+    def test_search_qdrant_search_failure(self):
+        """Test search with Qdrant search failure."""
+        # Mock successful embedding
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [[0.1, 0.2, 0.3]]
+        self.vector_searcher.vector_store.get_embedding_model = Mock(return_value=mock_embedding_model)
+
+        # Mock Qdrant search failure
+        self.mock_qdrant_client.search_with_vector.side_effect = Exception("Qdrant search failed")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            self.vector_searcher.search("test query", collection_name="test-collection")
+
+        assert "Search failed" in str(exc_info.value)
+
+    def test_search_with_vector_success(self):
+        """Test successful vector search with pre-computed vector."""
+        mock_search_results = [{"id": "doc_1", "payload": {"text": "Docker containers", "score": 0.92}, "score": 0.92}]
+        self.mock_qdrant_client.search_with_vector.return_value = mock_search_results
+
+        query_vector = [0.1, 0.2, 0.3, 0.4, 0.5]
+        result = self.vector_searcher.search_with_vector(
+            collection_name="test-collection", query_vector=query_vector, limit=10
+        )
+
+        # Verify search was called with correct parameters
+        self.mock_qdrant_client.search_with_vector.assert_called_once_with(
+            query_vector=query_vector,
+            collection_name="test-collection",
+            limit=10,
+            course_filter=None,
+            score_threshold=None,
+            with_payload=True,
+        )
+
+        assert result == mock_search_results
+
+    def test_search_with_vector_with_course_filter(self):
+        """Test vector search with pre-computed vector and course filter."""
+        mock_search_results = []
+        self.mock_qdrant_client.search_with_vector.return_value = mock_search_results
+
+        query_vector = [0.1, 0.2, 0.3]
+        result = self.vector_searcher.search_with_vector(
+            collection_name="test-collection", query_vector=query_vector, limit=3, course_filter="ml-course"
+        )
+
+        # Verify search was called with course filter
+        call_args = self.mock_qdrant_client.search_with_vector.call_args
+        assert call_args[1]["course_filter"] == "ml-course"
+        assert result == mock_search_results
+
+    def test_search_with_vector_empty_vector(self):
+        """Test search with empty vector."""
+        with pytest.raises(ValueError) as exc_info:
+            self.vector_searcher.search_with_vector(collection_name="test-collection", query_vector=[])
+
+        assert "Query vector cannot be empty" in str(exc_info.value)
+
+    def test_search_with_vector_none_vector(self):
+        """Test search with None vector."""
+        with pytest.raises(ValueError) as exc_info:
+            self.vector_searcher.search_with_vector(collection_name="test-collection", query_vector=None)
+
+        assert "Query vector cannot be empty" in str(exc_info.value)
+
+    def test_search_with_vector_qdrant_failure(self):
+        """Test search with vector when Qdrant search fails."""
+        self.mock_qdrant_client.search_with_vector.side_effect = Exception("Qdrant error")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            self.vector_searcher.search_with_vector(collection_name="test-collection", query_vector=[0.1, 0.2, 0.3])
+
+        assert "Search failed" in str(exc_info.value)
+
+    def test_search_with_vector_default_parameters(self):
+        """Test search with vector using default parameters."""
+        self.mock_qdrant_client.search_with_vector.return_value = []
+
+        self.vector_searcher.search_with_vector(collection_name="test-collection", query_vector=[0.1, 0.2, 0.3])
+
+        # Verify default parameters were used
+        call_args = self.mock_qdrant_client.search_with_vector.call_args
+        assert call_args[1]["limit"] == 5  # default limit
+        assert call_args[1]["with_payload"] is True  # default with_payload
+        assert call_args[1]["course_filter"] is None  # default course_filter
+
+
+class TestVectorSearcherIntegration:
+    """Integration tests for VectorSearcher with real-like dependencies."""
+
+    def setup_method(self):
+        """Set up integration test fixtures."""
+        self.mock_qdrant_client = Mock(spec=QdrantClientCustom)
+        self.mock_qdrant_client.qdrant = Mock()
+
+        # Create VectorSearcher with mocked Qdrant client
+        self.vector_searcher = VectorSearcher(embedding_model="test-embedding-model", qdrant_client=self.mock_qdrant_client)
+
+    @patch("rag.data.vector_store.TextEmbedding")
+    def test_search_integration_success(self, mock_text_embedding):
+        """Test successful integration between VectorSearcher and VectorStoreLoader."""
+        # Mock embedding model
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [[0.1, 0.2, 0.3, 0.4, 0.5]]
+        mock_text_embedding.return_value = mock_embedding_model
+
+        # Mock search results
+        mock_search_results = [
+            {
+                "id": "integration_doc_1",
+                "payload": {
+                    "text": "Docker integration test",
+                    "question": "How does Docker work?",
+                    "course": "docker-course",
+                    "score": 0.89,
+                },
+                "score": 0.89,
+            }
+        ]
+        self.mock_qdrant_client.search_with_vector.return_value = mock_search_results
+
+        # Test search
+        result = self.vector_searcher.search("Docker integration test", collection_name="integration-collection", limit=3)
+
+        # Verify the full pipeline worked
+        mock_text_embedding.assert_called_once_with(model_name="jinaai/jina-embeddings-v2-small-en")
+        mock_embedding_model.embed.assert_called_once_with(["Docker integration test"])
+        self.mock_qdrant_client.search_with_vector.assert_called_once_with(
+            query_vector=[0.1, 0.2, 0.3, 0.4, 0.5],
+            collection_name="integration-collection",
+            limit=3,
+            course_filter=None,
+            score_threshold=None,
+            with_payload=True,
+        )
+
+        assert result == mock_search_results
+
+    @patch("rag.data.vector_store.TextEmbedding")
+    def test_embed_query_integration_success(self, mock_text_embedding):
+        """Test successful embedding integration."""
+        # Mock embedding model with numpy-like return
+        mock_numpy_array = Mock()
+        mock_numpy_array.tolist.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+
+        mock_embedding_model = Mock()
+        mock_embedding_model.embed.return_value = [mock_numpy_array]
+        mock_text_embedding.return_value = mock_embedding_model
+
+        # Test embedding
+        result = self.vector_searcher.embed_query("Integration test query")
+
+        # Verify embedding model was initialized properly
+        mock_text_embedding.assert_called_once_with(model_name="jinaai/jina-embeddings-v2-small-en")
+        mock_embedding_model.embed.assert_called_once_with(["Integration test query"])
+        mock_numpy_array.tolist.assert_called_once()
+
+        assert result == [0.1, 0.2, 0.3, 0.4, 0.5]
 
 
 if __name__ == "__main__":

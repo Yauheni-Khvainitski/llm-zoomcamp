@@ -16,7 +16,7 @@ rag/
 ├── data/                       # Data loading and processing
 │   ├── __init__.py
 │   ├── loader.py              # DocumentLoader for fetching documents
-│   └── vector_store.py        # VectorStoreLoader and QdrantVectorLoader
+│   └── vector_store.py        # VectorStoreLoader, QdrantVectorLoader, and VectorSearcher
 ├── search/                     # Search and retrieval
 │   ├── __init__.py
 │   ├── elasticsearch_client.py # Elasticsearch operations
@@ -59,7 +59,11 @@ This system now supports **dual search backends**:
 - 512-dimensional vector space
 - Automatic document-to-vector conversion with VectorStoreLoader
 - High-level APIs for easy integration with QdrantVectorLoader
+- **VectorSearcher** class for dedicated search operations
 - Cosine similarity matching
+- Course filtering support
+- Both text query and pre-computed vector search
+- **Payload indexing** for optimized metadata filtering
 
 ### **Configuration**
 ```python
@@ -68,6 +72,77 @@ EMBEDDING_DIMENSIONALITY = 512
 EMBEDDING_MODEL = "jinaai/jina-embeddings-v2-small-en"
 QDRANT_URL = "http://localhost:6333"
 ```
+
+### **VectorSearcher Usage Examples** 🆕
+
+The new `VectorSearcher` class provides dedicated search functionality with proper separation of concerns:
+
+```python
+from rag.data.vector_store import VectorSearcher
+
+# Initialize the searcher
+searcher = VectorSearcher()
+
+# Search with text query (embeds query automatically)
+results = searcher.search(
+    query="What is Docker?",
+    collection_name="course-questions",
+    limit=5,
+    course_filter="docker-course"  # Optional course filter
+)
+
+# Search with pre-computed vector
+query_vector = [0.1, 0.2, 0.3, ...]  # Your 512-dimensional vector
+results = searcher.search_with_vector(
+    collection_name="course-questions",
+    query_vector=query_vector,
+    limit=3
+)
+
+# Just embed a query (useful for pre-computing vectors)
+embedding = searcher.embed_query("What is machine learning?")
+```
+
+**Key Features:**
+- **Automatic embedding**: Text queries are embedded using the configured model
+- **Flexible search**: Support for both text queries and pre-computed vectors  
+- **Course filtering**: Filter results by specific courses
+- **Error handling**: Comprehensive error handling and logging
+- **Integration**: Works seamlessly with existing VectorStoreLoader and QdrantVectorLoader
+
+### **Payload Indexing for Optimized Filtering** 🆕
+
+The system now automatically creates payload indexes for metadata fields during collection setup, providing significant performance improvements for filtering operations:
+
+```python
+from rag.data.vector_store import QdrantVectorLoader
+from rag.search.qdrant_client_custom import QdrantClientCustom
+from qdrant_client.models import PayloadSchemaType
+
+# Payload index is automatically created during collection setup
+vector_loader = QdrantVectorLoader()
+result = vector_loader.setup_collection(
+    collection_name="course-questions",
+    delete_if_exists=True
+)
+
+# Payload index creation is confirmed in the result
+print(f"Payload index created: {result['payload_index_created']}")  # True
+
+# Or create payload index manually
+qdrant_client = QdrantClientCustom()
+qdrant_client.create_payload_index(
+    collection_name="course-questions",
+    field_name="course",
+    field_schema=PayloadSchemaType.KEYWORD  # for exact matching
+)
+```
+
+**Benefits:**
+- **Faster Queries**: Optimized filtering by 'course' field
+- **Exact Matching**: Keyword schema ensures precise string matching
+- **Better Performance**: Significantly improves query speed when using course filters
+- **Automatic Setup**: Index is created automatically during collection initialization
 
 ## 📦 **Installation & Dependencies**
 
@@ -174,22 +249,20 @@ Our GitHub Actions workflows automatically:
 
 ## 🧪 Testing
 
-The project includes comprehensive unit tests for all components, **including new Qdrant client tests**:
+The project includes comprehensive unit tests for all components, **including new Qdrant client and VectorSearcher tests**:
 
 ### Running Tests
 
 ```bash
-# Run all tests (now 153 tests including Qdrant and Vector Store)
+# Run all tests (now 180+ tests including Qdrant, Vector Store, and VectorSearcher)
 python -m pytest rag/tests/ -v
 
 # Run tests with coverage
 python -m pytest rag/tests/ --cov=rag --cov-report=html
 
-# Run specific test module
+# Run specific test modules
 python -m pytest rag/tests/test_qdrant_client.py -v
-
-# Test vector store functionality  
-python -m pytest rag/tests/test_vector_store.py -v
+python -m pytest rag/tests/test_vector_store.py -v  # Includes VectorSearcher tests
 
 # Run custom test runner
 python -m rag.tests.test_runner
@@ -197,6 +270,15 @@ python -m rag.tests.test_runner
 # Run with the simple test script
 python run_tests.py
 ```
+
+### **New Test Coverage** 🆕
+
+- **VectorSearcher Tests**: Complete unit tests for the new VectorSearcher class
+  - `TestVectorSearcher`: Core functionality tests  
+  - `TestVectorSearcherIntegration`: Integration tests with real-like dependencies
+  - Tests for embedding generation, search operations, error handling, and parameter validation
+- **Qdrant Client Tests**: Vector database operations and search functionality
+- **Vector Store Tests**: Document loading, embedding generation, and Qdrant integration
 
 ### Test Coverage
 

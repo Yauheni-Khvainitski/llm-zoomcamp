@@ -372,6 +372,83 @@ class TestQdrantClient(unittest.TestCase):
         self.assertEqual(call_args[1]["vectors_config"].size, 1024)
         self.assertEqual(call_args[1]["vectors_config"].distance, Distance.MANHATTAN)
 
+    @patch("rag.search.qdrant_client_custom.QdrantClient")
+    def test_create_payload_index_success(self, mock_qdrant_client):
+        """Test successful payload index creation."""
+        from qdrant_client.models import PayloadSchemaType
+
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.create_payload_index.return_value = None
+
+        client = QdrantClientCustom(self.qdrant_url)
+        result = client.create_payload_index("test_collection", "course", PayloadSchemaType.KEYWORD)
+
+        self.assertTrue(result)
+        mock_client.create_payload_index.assert_called_once_with(
+            collection_name="test_collection", field_name="course", field_schema=PayloadSchemaType.KEYWORD
+        )
+
+    @patch("rag.search.qdrant_client_custom.QdrantClient")
+    def test_create_payload_index_default_schema(self, mock_qdrant_client):
+        """Test payload index creation with default schema type."""
+        from qdrant_client.models import PayloadSchemaType
+
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.create_payload_index.return_value = None
+
+        client = QdrantClientCustom(self.qdrant_url)
+        result = client.create_payload_index("test_collection", "course")
+
+        self.assertTrue(result)
+        call_args = mock_client.create_payload_index.call_args
+        self.assertEqual(call_args[1]["field_schema"], PayloadSchemaType.KEYWORD)
+
+    @patch("rag.search.qdrant_client_custom.QdrantClient")
+    def test_create_payload_index_already_exists(self, mock_qdrant_client):
+        """Test payload index creation when index already exists (409 conflict)."""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.create_payload_index.side_effect = UnexpectedResponse(
+            status_code=409, reason_phrase="Conflict", content=b"Index already exists", headers=httpx.Headers({})
+        )
+
+        client = QdrantClientCustom(self.qdrant_url)
+        result = client.create_payload_index("test_collection", "course")
+
+        self.assertTrue(result)  # Should return True for 409 conflicts
+
+    @patch("rag.search.qdrant_client_custom.QdrantClient")
+    def test_create_payload_index_http_error(self, mock_qdrant_client):
+        """Test payload index creation with HTTP error other than 409."""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.create_payload_index.side_effect = UnexpectedResponse(
+            status_code=500, reason_phrase="Internal Server Error", content=b"Server error", headers=httpx.Headers({})
+        )
+
+        client = QdrantClientCustom(self.qdrant_url)
+
+        with self.assertRaises(UnexpectedResponse) as context:
+            client.create_payload_index("test_collection", "course")
+
+        self.assertEqual(context.exception.status_code, 500)
+
+    @patch("rag.search.qdrant_client_custom.QdrantClient")
+    def test_create_payload_index_connection_error(self, mock_qdrant_client):
+        """Test payload index creation with connection error."""
+        mock_client = Mock()
+        mock_qdrant_client.return_value = mock_client
+        mock_client.create_payload_index.side_effect = Exception("Connection refused")
+
+        client = QdrantClientCustom(self.qdrant_url)
+
+        with self.assertRaises(Exception) as context:
+            client.create_payload_index("test_collection", "course")
+
+        self.assertIn("Connection refused", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

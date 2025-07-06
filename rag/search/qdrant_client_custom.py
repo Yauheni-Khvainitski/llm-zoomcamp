@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
-from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, VectorParams
+from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PayloadSchemaType, VectorParams
 
 from ..config import QDRANT_URL
 
@@ -196,4 +196,43 @@ class QdrantClientCustom:
 
         except Exception as e:
             logger.error(f"Error searching documents: {e}")
+            raise
+
+    def create_payload_index(
+        self, collection_name: str, field_name: str, field_schema: PayloadSchemaType = PayloadSchemaType.KEYWORD
+    ) -> bool:
+        """Create a payload index for a specific field in a Qdrant collection.
+
+        Args:
+            collection_name: Name of the collection to create payload index for
+            field_name: Name of the payload field to index
+            field_schema: Schema type for the field (default: KEYWORD for exact matching)
+
+        Returns:
+            True if payload index was created successfully
+
+        Raises:
+            Exception: If index creation fails
+        """
+        try:
+            logger.info(f"Creating payload index for field '{field_name}' in collection '{collection_name}'")
+
+            self.qdrant.create_payload_index(
+                collection_name=collection_name,
+                field_name=field_name,
+                field_schema=field_schema,
+            )
+
+            logger.info(f"Successfully created payload index for field '{field_name}' in collection '{collection_name}'")
+            return True
+
+        except UnexpectedResponse as e:
+            if e.status_code == 409:
+                logger.info(f"Payload index for field '{field_name}' already exists in collection '{collection_name}'")
+                return True
+            else:
+                logger.error(f"Error creating payload index for field '{field_name}': {e}")
+                raise
+        except Exception as e:
+            logger.error(f"Error creating payload index for field '{field_name}': {e}")
             raise
