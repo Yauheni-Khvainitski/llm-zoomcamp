@@ -1,11 +1,11 @@
 """Qdrant client wrapper for RAG system."""
 
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, VectorParams
 
 from ..config import QDRANT_URL
 
@@ -139,4 +139,61 @@ class QdrantClientCustom:
                 raise
         except Exception as e:
             logger.error(f"Error deleting collection '{collection_name}': {e}")
+            raise
+
+    def search_with_vector(
+        self,
+        query_vector: List[float],
+        collection_name: str,
+        limit: int = 5,
+        course_filter: Optional[str] = None,
+        score_threshold: Optional[float] = None,
+        with_payload: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Search documents in Qdrant using pre-computed vector.
+
+        Args:
+            query_vector: Pre-computed query vector for similarity search
+            collection_name: Collection name (REQUIRED)
+            limit: Number of results to return
+            course_filter: Optional course to filter by
+            score_threshold: Minimum similarity score threshold
+            with_payload: Whether to include document payload in results
+
+        Returns:
+            List of search results with documents and scores
+        """
+        try:
+            # Build filter if course is specified
+            query_filter = None
+            if course_filter:
+                query_filter = Filter(must=[FieldCondition(key="course", match=MatchValue(value=course_filter))])
+
+            # Perform vector search
+            logger.info(f"Searching in collection '{collection_name}' with limit {limit}")
+            response = self.qdrant.search(
+                collection_name=collection_name,
+                query_vector=query_vector,
+                query_filter=query_filter,
+                limit=limit,
+                score_threshold=score_threshold,
+                with_payload=with_payload,
+            )
+
+            # Format results
+            results = []
+            for point in response:
+                result = {
+                    "id": point.id,
+                    "score": point.score,
+                }
+                if with_payload and point.payload:
+                    result["payload"] = dict(point.payload)
+                results.append(result)
+
+            logger.info(f"Found {len(results)} results")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error searching documents: {e}")
             raise

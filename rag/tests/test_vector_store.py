@@ -68,7 +68,7 @@ class TestVectorStoreLoader:
         mock_embedding = Mock()
         mock_text_embedding.return_value = mock_embedding
 
-        result = self.vector_store._get_embedding_model()
+        result = self.vector_store.get_embedding_model()
 
         mock_text_embedding.assert_called_once_with(model_name="jinaai/jina-embeddings-v2-small-en")
         assert result is mock_embedding
@@ -80,7 +80,7 @@ class TestVectorStoreLoader:
         mock_embedding = Mock()
         self.vector_store.embedding_model = mock_embedding
 
-        result = self.vector_store._get_embedding_model()
+        result = self.vector_store.get_embedding_model()
 
         mock_text_embedding.assert_not_called()
         assert result is mock_embedding
@@ -91,7 +91,7 @@ class TestVectorStoreLoader:
         mock_text_embedding.side_effect = Exception("Model not found")
 
         with pytest.raises(Exception) as exc_info:
-            self.vector_store._get_embedding_model()
+            self.vector_store.get_embedding_model()
 
         assert "Embedding model initialization failed" in str(exc_info.value)
 

@@ -8,11 +8,10 @@ This script demonstrates:
 """
 
 import logging
-import os
 from dotenv import load_dotenv
 
 from rag import RAGPipeline
-from rag.data.vector_store import VectorStoreLoader, QdrantVectorLoader
+from rag.data.vector_store import VectorSearcher, QdrantVectorLoader
 from rag.search.qdrant_client_custom import QdrantClientCustom
 
 # Set up logging
@@ -159,13 +158,23 @@ def demonstrate_vector_store():
         
         print("\n3. Cleaning Up")
         print("-" * 30)
+
+        # Test the vector search
+        vector_searcher = VectorSearcher(qdrant_client=qdrant_loader.vector_store.qdrant_client)
+        responses = vector_searcher.search(
+            query="How can I join the course?",
+            collection_name=test_collection,
+            limit=3,
+            with_payload=True
+        )
+        print(f"✅ Responses: {responses}")
         
         # Delete test collection
         qdrant_client.delete_collection(test_collection)
         print(f"✅ Test collection '{test_collection}' deleted")
-        
+
         print("\n✅ Vector store operations completed!")
-        
+
     except Exception as e:
         logger.error(f"Error in vector store operations: {e}")
         print(f"❌ Error: {e}")
@@ -190,11 +199,7 @@ def main():
         print("✅ All demonstrations completed!")
         print("\nWhat was demonstrated:")
         print("• Full RAG pipeline with question answering (Elasticsearch)")
-        print("• Vector store operations: create, load, delete (Qdrant)")
-        print("\nNext steps:")
-        print("• Integrate Qdrant with RAG pipeline for similarity search")
-        print("• Test with different embedding models")
-        print("• Build production-ready applications")
+        print("• Vector store operations: create, load, search, delete (Qdrant)")
         
     except Exception as e:
         logger.error(f"Error in main execution: {e}")
