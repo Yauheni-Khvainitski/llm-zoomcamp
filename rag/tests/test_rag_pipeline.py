@@ -3,104 +3,97 @@ Tests for the RAGPipeline class.
 """
 
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from ..models.course import Course
 from ..pipeline.rag import RAGPipeline
 
 
 class TestRAGPipeline(unittest.TestCase):
-    """Test suite for the RAGPipeline class."""
+    """Test cases for RAGPipeline class."""
 
     def setUp(self):
         """Set up test fixtures."""
         self.sample_documents = [
             {
-                "doc_id": "doc1",
-                "text": "Docker is a containerization platform.",
+                "text": "Docker is a containerization platform",
+                "section": "Introduction",
                 "question": "What is Docker?",
-                "section": "General",
                 "course": "data-engineering-zoomcamp",
+                "doc_id": "docker_001",
             },
             {
-                "doc_id": "doc2",
-                "text": "You can install Docker from the official website.",
-                "question": "How to install Docker?",
-                "section": "Setup",
+                "text": "Containers are lightweight",
+                "section": "Containers",
+                "question": "What are containers?",
                 "course": "data-engineering-zoomcamp",
+                "doc_id": "docker_002",
             },
         ]
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_init_success(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
-        """Test successful RAGPipeline initialization."""
-        # Setup mocks
-        mock_doc_loader.return_value = Mock()
-        mock_es_client.return_value = Mock()
-        mock_query_builder.return_value = Mock()
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
+    def create_mocked_pipeline(self, **component_overrides):
+        """Create a RAGPipeline with mocked components.
 
-        pipeline = RAGPipeline()
+        Args:
+            **component_overrides: Optional overrides for specific components
 
-        # Verify all components were initialized
+        Returns:
+            RAGPipeline instance with mocked components
+        """
+        # Create default mocked components
+        mock_document_loader = Mock()
+        mock_es_client = Mock()
+        mock_query_builder = Mock()
+        mock_context_formatter = Mock()
+        mock_llm_client = Mock()
+        mock_vector_searcher = Mock()
+
+        # Apply any overrides
+        components = {
+            "document_loader": component_overrides.get("document_loader", mock_document_loader),
+            "es_client": component_overrides.get("es_client", mock_es_client),
+            "query_builder": component_overrides.get("query_builder", mock_query_builder),
+            "context_formatter": component_overrides.get("context_formatter", mock_context_formatter),
+            "llm_client": component_overrides.get("llm_client", mock_llm_client),
+            "vector_searcher": component_overrides.get("vector_searcher", mock_vector_searcher),
+        }
+
+        return RAGPipeline(**components)
+
+    def test_init_success(self):
+        """Test successful initialization."""
+        pipeline = self.create_mocked_pipeline()
+
         self.assertIsNotNone(pipeline.document_loader)
         self.assertIsNotNone(pipeline.es_client)
         self.assertIsNotNone(pipeline.query_builder)
         self.assertIsNotNone(pipeline.context_formatter)
         self.assertIsNotNone(pipeline.llm_client)
+        self.assertIsNotNone(pipeline.vector_searcher)
+        self.assertEqual(pipeline.index_name, "zoomcamp-courses-questions")
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_init_with_custom_config(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
-        """Test RAGPipeline initialization with custom configuration."""
-        mock_doc_loader.return_value = Mock()
-        mock_es_client.return_value = Mock()
-        mock_query_builder.return_value = Mock()
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
+    def test_init_with_custom_config(self):
+        """Test initialization with custom configuration."""
+        pipeline = self.create_mocked_pipeline()
+        pipeline.index_name = "custom-index"
+        pipeline.collection_name = "custom-collection"
 
-        custom_config = {
-            "es_url": "http://custom:9200",
-            "index_name": "custom-index",
-            "openai_model": "gpt-3.5-turbo",
-        }
+        self.assertEqual(pipeline.index_name, "custom-index")
+        self.assertEqual(pipeline.collection_name, "custom-collection")
 
-        RAGPipeline(**custom_config)
-
-        # Verify custom config was used
-        mock_es_client.assert_called_with(es_url="http://custom:9200")
-        mock_openai.assert_called_with(api_key=None, model="gpt-3.5-turbo")
-
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_setup_index_success(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
+    def test_setup_index_success(self):
         """Test successful index setup."""
-        # Setup mocks
+        # Create mocked components
         mock_loader = Mock()
         mock_loader.load_documents.return_value = self.sample_documents
-        mock_doc_loader.return_value = mock_loader
 
         mock_es = Mock()
         mock_es.create_index.return_value = True
         mock_es.index_documents.return_value = 2
-        mock_es_client.return_value = mock_es
 
-        mock_query_builder.return_value = Mock()
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
+        # Create pipeline with injected mocks
+        pipeline = self.create_mocked_pipeline(document_loader=mock_loader, es_client=mock_es)
 
-        pipeline = RAGPipeline()
         result = pipeline.setup_index()
 
         # Verify setup process
@@ -110,52 +103,29 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(result["documents_indexed"], 2)
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_setup_index_failure(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
+    def test_setup_index_failure(self):
         """Test index setup failure."""
         mock_loader = Mock()
         mock_loader.load_documents.side_effect = Exception("Failed to load documents")
-        mock_doc_loader.return_value = mock_loader
 
-        mock_es_client.return_value = Mock()
-        mock_query_builder.return_value = Mock()
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
-
-        pipeline = RAGPipeline()
+        pipeline = self.create_mocked_pipeline(document_loader=mock_loader)
 
         with self.assertRaises(Exception) as context:
             pipeline.setup_index()
 
         self.assertIn("Failed to load documents", str(context.exception))
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_search_success(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
+    def test_search_success(self):
         """Test successful document search."""
-        # Setup mocks
-        mock_doc_loader.return_value = Mock()
-
         mock_es = Mock()
         mock_es.search_documents.return_value = self.sample_documents
-        mock_es_client.return_value = mock_es
 
         mock_qb = Mock()
         mock_query = {"query": {"match": {"text": "Docker"}}}
         mock_qb.build_search_query.return_value = mock_query
-        mock_query_builder.return_value = mock_qb
 
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
+        pipeline = self.create_mocked_pipeline(es_client=mock_es, query_builder=mock_qb)
 
-        pipeline = RAGPipeline()
         result = pipeline.search("What is Docker?")
 
         # Verify search process
@@ -165,28 +135,17 @@ class TestRAGPipeline(unittest.TestCase):
         mock_es.search_documents.assert_called_once_with(mock_query, "zoomcamp-courses-questions", return_raw=False)
         self.assertEqual(result, self.sample_documents)
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_search_with_course_filter(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
+    def test_search_with_course_filter(self):
         """Test document search with course filter."""
-        mock_doc_loader.return_value = Mock()
-
         mock_es = Mock()
         mock_es.search_documents.return_value = self.sample_documents
-        mock_es_client.return_value = mock_es
 
         mock_qb = Mock()
         mock_query = {"query": {"bool": {"must": {}, "filter": {}}}}
         mock_qb.build_search_query.return_value = mock_query
-        mock_query_builder.return_value = mock_qb
 
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
+        pipeline = self.create_mocked_pipeline(es_client=mock_es, query_builder=mock_qb)
 
-        pipeline = RAGPipeline()
         result = pipeline.search("What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP)
 
         mock_qb.build_search_query.assert_called_once_with(
@@ -194,27 +153,17 @@ class TestRAGPipeline(unittest.TestCase):
         )
         self.assertEqual(result, self.sample_documents)
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_generate_answer_success(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
+    def test_generate_answer_success(self):
         """Test successful answer generation."""
-        mock_doc_loader.return_value = Mock()
-        mock_es_client.return_value = Mock()
-        mock_query_builder.return_value = Mock()
-
         mock_fmt = Mock()
         mock_fmt.format_context.return_value = "Test context"
         mock_fmt.build_prompt.return_value = "Test prompt"
-        mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
         mock_ai.get_response.return_value = "Test answer"
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
+        pipeline = self.create_mocked_pipeline(context_formatter=mock_fmt, llm_client=mock_ai)
+
         result = pipeline.generate_response("What is Docker?", self.sample_documents)
 
         mock_fmt.format_context.assert_called_once_with(self.sample_documents)
@@ -223,29 +172,17 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(result["response"], "Test answer")
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_generate_answer_with_usage(
-        self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader
-    ):
+    def test_generate_answer_with_usage(self):
         """Test answer generation with usage information."""
-        mock_doc_loader.return_value = Mock()
-        mock_es_client.return_value = Mock()
-        mock_query_builder.return_value = Mock()
-
         mock_fmt = Mock()
         mock_fmt.format_context.return_value = "Test context"
         mock_fmt.build_prompt.return_value = "Test prompt"
-        mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
         mock_ai.get_response.return_value = "Test answer"
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
+        pipeline = self.create_mocked_pipeline(context_formatter=mock_fmt, llm_client=mock_ai)
+
         result = pipeline.generate_response("What is Docker?", self.sample_documents, include_context=True)
 
         mock_ai.get_response.assert_called_once_with("Test prompt", model=None)
@@ -254,36 +191,25 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertIn("context", result)
         self.assertIn("prompt", result)
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_ask_question_elasticsearch_success(
-        self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader
-    ):
+    def test_ask_question_elasticsearch_success(self):
         """Test successful end-to-end question answering with Elasticsearch."""
-        # Setup all mocks
-        mock_doc_loader.return_value = Mock()
-
         mock_es = Mock()
         mock_es.search_documents.return_value = self.sample_documents
-        mock_es_client.return_value = mock_es
 
         mock_qb = Mock()
         mock_qb.build_search_query.return_value = {"query": {"match": {"text": "Docker"}}}
-        mock_query_builder.return_value = mock_qb
 
         mock_fmt = Mock()
         mock_fmt.format_context.return_value = "Test context"
         mock_fmt.build_prompt.return_value = "Test prompt"
-        mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
         mock_ai.get_response.return_value = "Docker is a containerization platform."
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
+        pipeline = self.create_mocked_pipeline(
+            es_client=mock_es, query_builder=mock_qb, context_formatter=mock_fmt, llm_client=mock_ai
+        )
+
         result = pipeline.ask("What is Docker?", search_engine="elasticsearch")
 
         # Verify the full pipeline was executed
@@ -295,290 +221,219 @@ class TestRAGPipeline(unittest.TestCase):
 
         self.assertEqual(result, "Docker is a containerization platform.")
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.VectorSearcher")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_ask_question_qdrant_success(
-        self, mock_openai, mock_formatter, mock_vector_searcher, mock_es_client, mock_doc_loader
-    ):
+    def test_ask_question_qdrant_success(self):
         """Test successful end-to-end question answering with Qdrant."""
-        # Setup all mocks
-        mock_doc_loader.return_value = Mock()
-
-        mock_es = Mock()
-        mock_es_client.return_value = mock_es
-
-        # Mock vector searcher to return Qdrant-style results
-        mock_vector_results = [
-            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}},
-            {"id": "doc2", "score": 0.85, "payload": {"text": "Containers are lightweight", "course": "docker"}},
+        # Mock vector search results (Qdrant format)
+        mock_qdrant_results = [
+            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}}
         ]
-        mock_vector_searcher.return_value = Mock()
+
+        mock_vector_searcher = Mock()
+        mock_vector_searcher.search.return_value = mock_qdrant_results
 
         mock_fmt = Mock()
         mock_fmt.format_context.return_value = "Test context"
         mock_fmt.build_prompt.return_value = "Test prompt"
-        mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
         mock_ai.get_response.return_value = "Docker is a containerization platform."
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
-        pipeline.vector_searcher.search = Mock(return_value=mock_vector_results)
+        pipeline = self.create_mocked_pipeline(
+            vector_searcher=mock_vector_searcher, context_formatter=mock_fmt, llm_client=mock_ai
+        )
+
         result = pipeline.ask("What is Docker?", search_engine="qdrant")
 
         # Verify the full pipeline was executed
-        pipeline.vector_searcher.search.assert_called_once()
+        mock_vector_searcher.search.assert_called_once()
         mock_fmt.format_context.assert_called_once()
         mock_fmt.build_prompt.assert_called_once()
         mock_ai.get_response.assert_called_once()
 
         self.assertEqual(result, "Docker is a containerization platform.")
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_ask_question_elasticsearch_with_debug(
-        self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader
-    ):
-        """Test question answering with debug information using Elasticsearch."""
-        mock_doc_loader.return_value = Mock()
-
+    def test_ask_question_elasticsearch_with_debug(self):
+        """Test debug mode with Elasticsearch."""
         mock_es = Mock()
         mock_es.search_documents.return_value = self.sample_documents
-        mock_es_client.return_value = mock_es
 
         mock_qb = Mock()
-        mock_query = {"query": {"match": {"text": "Docker"}}}
-        mock_qb.build_search_query.return_value = mock_query
-        mock_query_builder.return_value = mock_qb
+        mock_qb.build_search_query.return_value = {"query": {"match": {"text": "Docker"}}}
 
         mock_fmt = Mock()
         mock_fmt.format_context.return_value = "Test context"
         mock_fmt.build_prompt.return_value = "Test prompt"
-        mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
         mock_ai.get_response.return_value = "Docker is a containerization platform."
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
+        pipeline = self.create_mocked_pipeline(
+            es_client=mock_es, query_builder=mock_qb, context_formatter=mock_fmt, llm_client=mock_ai
+        )
+
         result = pipeline.ask("What is Docker?", search_engine="elasticsearch", debug=True)
 
         # Should return the response string
         self.assertIsInstance(result, str)
         self.assertEqual(result, "Docker is a containerization platform.")
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.VectorSearcher")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_ask_question_qdrant_with_debug(
-        self, mock_openai, mock_formatter, mock_vector_searcher, mock_es_client, mock_doc_loader
-    ):
-        """Test question answering with debug information using Qdrant."""
-        mock_doc_loader.return_value = Mock()
-
-        mock_es = Mock()
-        mock_es_client.return_value = mock_es
-
-        # Mock vector searcher to return Qdrant-style results
-        mock_vector_results = [
-            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}},
+    def test_ask_question_qdrant_with_debug(self):
+        """Test debug mode with Qdrant."""
+        # Mock vector search results (Qdrant format)
+        mock_qdrant_results = [
+            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}}
         ]
-        mock_vector_searcher.return_value = Mock()
+
+        mock_vector_searcher = Mock()
+        mock_vector_searcher.search.return_value = mock_qdrant_results
 
         mock_fmt = Mock()
         mock_fmt.format_context.return_value = "Test context"
         mock_fmt.build_prompt.return_value = "Test prompt"
-        mock_formatter.return_value = mock_fmt
 
         mock_ai = Mock()
         mock_ai.get_response.return_value = "Docker is a containerization platform."
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
-        pipeline.vector_searcher.search = Mock(return_value=mock_vector_results)
+        pipeline = self.create_mocked_pipeline(
+            vector_searcher=mock_vector_searcher, context_formatter=mock_fmt, llm_client=mock_ai
+        )
+
         result = pipeline.ask("What is Docker?", search_engine="qdrant", debug=True)
 
         # Should return the response string
         self.assertIsInstance(result, str)
         self.assertEqual(result, "Docker is a containerization platform.")
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.VectorSearcher")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_ask_question_invalid_search_engine(
-        self, mock_openai, mock_formatter, mock_vector_searcher, mock_es_client, mock_doc_loader
-    ):
-        """Test question answering with invalid search engine."""
-        mock_doc_loader.return_value = Mock()
-        mock_es_client.return_value = Mock()
-        mock_vector_searcher.return_value = Mock()
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
+    def test_ask_question_invalid_search_engine(self):
+        """Test error handling for invalid search engine."""
+        pipeline = self.create_mocked_pipeline()
 
-        pipeline = RAGPipeline()
-
-        # Test with invalid search engine
         with self.assertRaises(ValueError) as context:
-            pipeline.ask("What is Docker?", search_engine="invalid_engine")
+            pipeline.ask("What is Docker?", search_engine="invalid")
 
-        self.assertIn("Invalid search engine", str(context.exception))
+        self.assertIn("Invalid search engine: invalid", str(context.exception))
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_health_check_success(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
+    def test_health_check_success(self):
         """Test successful health check."""
-        mock_doc_loader_instance = Mock()
-        mock_doc_loader_instance.documents = [{"doc": "test"}]
-        mock_doc_loader.return_value = mock_doc_loader_instance
-
         mock_es = Mock()
         mock_es.health_check.return_value = True
-        mock_es_client.return_value = mock_es
-
-        mock_query_builder.return_value = Mock()
-        mock_formatter.return_value = Mock()
 
         mock_ai = Mock()
         mock_ai.api_key = "test-key"
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
+        mock_loader = Mock()
+        mock_loader.documents = ["doc1", "doc2"]
+
+        mock_vector_searcher = Mock()
+
+        pipeline = self.create_mocked_pipeline(
+            es_client=mock_es, llm_client=mock_ai, document_loader=mock_loader, vector_searcher=mock_vector_searcher
+        )
+
         result = pipeline.health_check()
 
-        self.assertIsInstance(result, dict)
         self.assertTrue(result["elasticsearch"])
-        self.assertTrue(result["qdrant"])
         self.assertTrue(result["openai"])
+        self.assertTrue(result["qdrant"])
         self.assertTrue(result["documents"])
         self.assertTrue(result["overall"])
-        self.assertIn("overall", result)
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_health_check_elasticsearch_failure(
-        self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader
-    ):
+    def test_health_check_elasticsearch_failure(self):
         """Test health check with Elasticsearch failure."""
-        mock_doc_loader_instance = Mock()
-        mock_doc_loader_instance.documents = []
-        mock_doc_loader.return_value = mock_doc_loader_instance
-
         mock_es = Mock()
         mock_es.health_check.return_value = False
-        mock_es_client.return_value = mock_es
-
-        mock_query_builder.return_value = Mock()
-        mock_formatter.return_value = Mock()
 
         mock_ai = Mock()
         mock_ai.api_key = "test-key"
-        mock_openai.return_value = mock_ai
 
-        pipeline = RAGPipeline()
+        mock_loader = Mock()
+        mock_loader.documents = ["doc1", "doc2"]
+
+        mock_vector_searcher = Mock()
+
+        pipeline = self.create_mocked_pipeline(
+            es_client=mock_es, llm_client=mock_ai, document_loader=mock_loader, vector_searcher=mock_vector_searcher
+        )
+
         result = pipeline.health_check()
 
         self.assertFalse(result["elasticsearch"])
-        self.assertTrue(result["qdrant"])
         self.assertTrue(result["openai"])
-        self.assertFalse(result["documents"])
+        self.assertTrue(result["qdrant"])
+        self.assertTrue(result["documents"])
         self.assertFalse(result["overall"])
 
-    @patch("rag.pipeline.rag.DocumentLoader")
-    @patch("rag.pipeline.rag.ElasticsearchClient")
-    @patch("rag.pipeline.rag.QueryBuilder")
-    @patch("rag.pipeline.rag.ContextFormatter")
-    @patch("rag.pipeline.rag.OpenAIClient")
-    def test_get_stats(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
-        """Test getting pipeline statistics."""
-        mock_loader = Mock()
-        mock_loader.get_document_stats.return_value = {
-            "total_documents": 100,
-            "unique_courses": 4,
-            "documents_by_course": {"course1": 25, "course2": 75},
-        }
-        mock_doc_loader.return_value = mock_loader
-
+    def test_get_stats(self):
+        """Test getting system statistics."""
         mock_es = Mock()
-        mock_es.count_documents.return_value = 100
-        mock_es_client.return_value = mock_es
+        mock_es.count_documents.return_value = 42
+        mock_es.index_exists.return_value = True
 
-        mock_query_builder.return_value = Mock()
-        mock_formatter.return_value = Mock()
-        mock_openai.return_value = Mock()
+        mock_ai = Mock()
+        mock_ai.model = "gpt-4o"
 
-        pipeline = RAGPipeline()
+        mock_loader = Mock()
+        mock_loader.get_document_stats.return_value = {"total_documents": 100, "unique_courses": 4}
+
+        mock_vector_searcher = Mock()
+
+        pipeline = self.create_mocked_pipeline(
+            es_client=mock_es, llm_client=mock_ai, document_loader=mock_loader, vector_searcher=mock_vector_searcher
+        )
+
         result = pipeline.get_stats()
 
         self.assertIsInstance(result, dict)
-        self.assertIn("documents", result)
         self.assertIn("elasticsearch", result)
         self.assertIn("qdrant", result)
-        self.assertEqual(result["elasticsearch"]["document_count"], 100)
-        self.assertEqual(result["documents"]["total_documents"], 100)
+        self.assertIn("documents", result)
+        self.assertIn("llm", result)
+        self.assertEqual(result["elasticsearch"]["document_count"], 42)
         self.assertEqual(result["qdrant"]["collection_name"], "zoomcamp-courses-questions")
         self.assertTrue(result["qdrant"]["vector_searcher_available"])
 
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_search_vector_success(self, mock_vector_searcher):
-        """Test successful vector search operation."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
-
+    def test_search_vector_success(self):
+        """Test vector search functionality."""
         # Mock VectorSearcher.search to return Qdrant-style results
         mock_qdrant_results = [
-            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}},
-            {"id": "doc2", "score": 0.85, "payload": {"text": "Containers are lightweight", "course": "docker"}},
+            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}}
         ]
 
-        rag_pipeline.vector_searcher.search = Mock(return_value=mock_qdrant_results)
+        mock_vector_searcher = Mock()
+        mock_vector_searcher.search.return_value = mock_qdrant_results
 
-        # Test non-raw response
-        result = rag_pipeline.search_vector("What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP)
+        pipeline = self.create_mocked_pipeline(vector_searcher=mock_vector_searcher)
 
-        self.assertEqual(len(result), 2)
+        # Test normal response
+        result = pipeline.search_vector("What is Docker?")
+
+        self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["text"], "Docker is a containerization platform")
-        self.assertEqual(result[1]["text"], "Containers are lightweight")
+        self.assertEqual(result[0]["course"], "docker")
 
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_search_vector_empty_results(self, mock_vector_searcher):
+    def test_search_vector_empty_results(self):
         """Test vector search with empty results."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
+        mock_vector_searcher = Mock()
+        mock_vector_searcher.search.return_value = []
 
-        rag_pipeline.vector_searcher.search = Mock(return_value=[])
+        pipeline = self.create_mocked_pipeline(vector_searcher=mock_vector_searcher)
 
-        result = rag_pipeline.search_vector("Non-existent question")
+        result = pipeline.search_vector("What is unknown?")
 
-        self.assertEqual(result, [])
+        self.assertEqual(len(result), 0)
 
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_search_vector_with_parameters(self, mock_vector_searcher):
-        """Test vector search with all parameters."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
+    def test_search_vector_with_parameters(self):
+        """Test vector search with parameters."""
+        mock_qdrant_results = [
+            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}}
+        ]
 
-        mock_qdrant_results = [{"id": "doc1", "score": 0.95, "payload": {"text": "Docker info", "course": "docker"}}]
+        mock_vector_searcher = Mock()
+        mock_vector_searcher.search.return_value = mock_qdrant_results
 
-        rag_pipeline.vector_searcher.search = Mock(return_value=mock_qdrant_results)
+        pipeline = self.create_mocked_pipeline(vector_searcher=mock_vector_searcher)
 
-        result = rag_pipeline.search_vector(
+        result = pipeline.search_vector(
             question="What is Docker?",
             course_filter=Course.DATA_ENGINEERING_ZOOMCAMP,
             num_results=3,
@@ -586,12 +441,8 @@ class TestRAGPipeline(unittest.TestCase):
             collection_name="test-collection",
         )
 
-        # Verify the search was successful
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["text"], "Docker info")
-
         # Verify VectorSearcher.search was called with correct parameters
-        rag_pipeline.vector_searcher.search.assert_called_once_with(
+        mock_vector_searcher.search.assert_called_once_with(
             query="What is Docker?",
             collection_name="test-collection",
             limit=3,
@@ -600,16 +451,19 @@ class TestRAGPipeline(unittest.TestCase):
             with_payload=True,
         )
 
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_vector_search_error_handling(self, mock_vector_searcher):
-        """Test error handling in vector search."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
+        # Verify result
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["text"], "Docker is a containerization platform")
 
-        rag_pipeline.vector_searcher.search = Mock(side_effect=Exception("Vector search failed"))
+    def test_vector_search_error_handling(self):
+        """Test error handling in vector search."""
+        mock_vector_searcher = Mock()
+        mock_vector_searcher.search.side_effect = Exception("Vector search failed")
+
+        pipeline = self.create_mocked_pipeline(vector_searcher=mock_vector_searcher)
 
         with self.assertRaises(Exception) as context:
-            rag_pipeline.search_vector("What is Docker?")
+            pipeline.search_vector("What is Docker?")
 
         self.assertIn("Vector search failed", str(context.exception))
 

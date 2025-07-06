@@ -28,6 +28,12 @@ class RAGPipeline:  # pylint: disable=too-many-instance-attributes
         collection_name: Optional[str] = None,
         openai_api_key: Optional[str] = None,
         openai_model: Optional[str] = None,
+        document_loader: Optional["DocumentLoader"] = None,
+        es_client: Optional["ElasticsearchClient"] = None,
+        query_builder: Optional["QueryBuilder"] = None,
+        context_formatter: Optional["ContextFormatter"] = None,
+        llm_client: Optional["OpenAIClient"] = None,
+        vector_searcher: Optional["VectorSearcher"] = None,
     ):
         """Initialize the RAG pipeline.
 
@@ -37,17 +43,23 @@ class RAGPipeline:  # pylint: disable=too-many-instance-attributes
             collection_name: Qdrant collection name for vector search
             openai_api_key: OpenAI API key
             openai_model: OpenAI model to use
+            document_loader: Optional DocumentLoader instance (for testing)
+            es_client: Optional ElasticsearchClient instance (for testing)
+            query_builder: Optional QueryBuilder instance (for testing)
+            context_formatter: Optional ContextFormatter instance (for testing)
+            llm_client: Optional OpenAIClient instance (for testing)
+            vector_searcher: Optional VectorSearcher instance (for testing)
         """
         self.index_name = index_name
         self.collection_name = collection_name or DEFAULT_COLLECTION_NAME
 
-        # Initialize components
-        self.document_loader = DocumentLoader()
-        self.es_client = ElasticsearchClient(es_url=es_url)
-        self.query_builder = QueryBuilder()
-        self.context_formatter = ContextFormatter()
-        self.llm_client = OpenAIClient(api_key=openai_api_key, model=openai_model)
-        self.vector_searcher = VectorSearcher()
+        # Initialize components with dependency injection
+        self.document_loader = document_loader or DocumentLoader()
+        self.es_client = es_client or ElasticsearchClient(es_url=es_url)
+        self.query_builder = query_builder or QueryBuilder()
+        self.context_formatter = context_formatter or ContextFormatter()
+        self.llm_client = llm_client or OpenAIClient(api_key=openai_api_key, model=openai_model)
+        self.vector_searcher = vector_searcher or VectorSearcher()
 
         logger.info("RAG pipeline initialized")
 
