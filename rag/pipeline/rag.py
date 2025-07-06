@@ -18,7 +18,7 @@ from ..search.query_builder import QueryBuilder
 logger = logging.getLogger(__name__)
 
 
-class RAGPipeline:
+class RAGPipeline:  # pylint: disable=too-many-instance-attributes
     """Main RAG pipeline that orchestrates all components."""
 
     def __init__(

@@ -12,32 +12,30 @@ from rag.data.vector_store import QdrantVectorLoader, VectorSearcher, VectorStor
 from rag.search.qdrant_client_custom import QdrantClientCustom
 
 
-class TestVectorStoreLoader:
+class TestVectorStoreLoader:  # pylint: disable=attribute-defined-outside-init
     """Test cases for VectorStoreLoader class."""
 
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_qdrant_client = Mock(spec=QdrantClientCustom)
-        self.mock_qdrant_client.qdrant = Mock()  # Add qdrant attribute
+        self.mock_qdrant_client.qdrant = Mock()  # Add the qdrant attribute
         self.vector_store = VectorStoreLoader(qdrant_client=self.mock_qdrant_client)
 
-        # Sample test documents with full_text field
+        # Sample documents for testing
         self.sample_docs = [
             {
                 "doc_id": "test_doc_1",
                 "text": "Docker is a containerization platform",
                 "question": "What is Docker?",
-                "full_text": "What is Docker? Docker is a containerization platform",
+                "course": "docker",
                 "section": "Introduction",
-                "course": "docker-course",
             },
             {
                 "doc_id": "test_doc_2",
-                "text": "Kubernetes orchestrates containers",
+                "text": "Kubernetes is a container orchestration system",
                 "question": "What is Kubernetes?",
-                "full_text": "What is Kubernetes? Kubernetes orchestrates containers",
+                "course": "kubernetes",
                 "section": "Orchestration",
-                "course": "k8s-course",
             },
         ]
 
@@ -98,7 +96,7 @@ class TestVectorStoreLoader:
     def test_generate_embeddings_empty_documents(self):
         """Test embedding generation with empty document list."""
         result = self.vector_store.generate_embeddings([])
-        assert result == []
+        assert not result
 
     @patch("rag.data.vector_store.TextEmbedding")
     def test_generate_embeddings_success(self, mock_text_embedding):
@@ -229,7 +227,7 @@ class TestVectorStoreLoader:
         assert "Qdrant loading failed" in str(exc_info.value)
 
 
-class TestQdrantVectorLoader:
+class TestQdrantVectorLoader:  # pylint: disable=attribute-defined-outside-init
     """Test cases for QdrantVectorLoader class."""
 
     def setup_method(self):
@@ -358,25 +356,32 @@ class TestQdrantVectorLoader:
         self.qdrant_loader.vector_store.qdrant_client.create_payload_index.assert_called_once()
 
 
-class TestIntegration:
-    """Integration tests for vector store components."""
+class TestIntegration:  # pylint: disable=attribute-defined-outside-init
+    """Test cases for integration testing."""
 
     def setup_method(self):
-        """Set up integration test fixtures."""
+        """Set up test fixtures."""
         self.mock_qdrant_client = Mock(spec=QdrantClientCustom)
-        self.mock_qdrant_client.qdrant = Mock()  # Add qdrant attribute
-        self.mock_qdrant_client.collection_exists.return_value = True
+        self.mock_qdrant_client.qdrant = Mock()  # Add the qdrant attribute
 
-        # Create sample documents with full_text field
+        # Create a vector store loader
         self.sample_docs = [
             {
                 "doc_id": "integration_test_1",
                 "text": "Integration test document 1",
                 "question": "What is integration testing?",
                 "full_text": "What is integration testing? Integration test document 1",
+                "course": "test-course",
                 "section": "Testing",
-                "course": "software-engineering",
-            }
+            },
+            {
+                "doc_id": "integration_test_2",
+                "text": "Integration test document 2",
+                "question": "How does integration testing work?",
+                "full_text": "How does integration testing work? Integration test document 2",
+                "course": "test-course",
+                "section": "Testing",
+            },
         ]
 
     @patch("rag.data.vector_store.TextEmbedding")
@@ -392,18 +397,21 @@ class TestIntegration:
 
         # Generate embeddings
         embeddings = vector_store.generate_embeddings(self.sample_docs)
-        assert len(embeddings) == 1
+        assert len(embeddings) == 2
         assert embeddings[0] == [0.1, 0.2, 0.3, 0.4, 0.5]
+        assert embeddings[1] == [0.1, 0.2, 0.3, 0.4, 0.5]
 
         # Create points
         points = vector_store.create_points(self.sample_docs, embeddings)
-        assert len(points) == 1
+        assert len(points) == 2
         assert points[0].id == abs(hash("integration_test_1"))
         assert points[0].vector == [0.1, 0.2, 0.3, 0.4, 0.5]
+        assert points[1].id == abs(hash("integration_test_2"))
+        assert points[1].vector == [0.1, 0.2, 0.3, 0.4, 0.5]
 
         # Load to Qdrant
         result = vector_store.load_to_qdrant("test-collection", self.sample_docs)
-        assert result == 1
+        assert result == 2
 
         # Verify upsert was called
         self.mock_qdrant_client.qdrant.upsert.assert_called_once()
@@ -425,8 +433,8 @@ class TestIntegration:
         result = qdrant_loader.setup_collection("integration-test")
 
         assert result["collection_name"] == "integration-test"
-        assert result["documents_loaded"] == 1
-        assert result["points_uploaded"] == 1
+        assert result["documents_loaded"] == 2
+        assert result["points_uploaded"] == 2
         assert result["payload_index_created"] is True
 
         # Verify all components were called
@@ -436,23 +444,22 @@ class TestIntegration:
         self.mock_qdrant_client.qdrant.upsert.assert_called_once()
 
 
-class TestVectorSearcher:
+class TestVectorSearcher:  # pylint: disable=attribute-defined-outside-init
     """Test cases for VectorSearcher class."""
 
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_qdrant_client = Mock(spec=QdrantClientCustom)
-        self.mock_qdrant_client.qdrant = Mock()
-        self.vector_searcher = VectorSearcher(embedding_model="test-embedding-model", qdrant_client=self.mock_qdrant_client)
+        self.mock_qdrant_client.qdrant = Mock()  # Add the qdrant attribute
+        self.vector_searcher = VectorSearcher(qdrant_client=self.mock_qdrant_client)
 
     def test_init_default_dependencies(self):
         """Test initialization with default dependencies."""
-        with patch("rag.data.vector_store.QdrantClientCustom") as mock_qdrant_client:
-            searcher = VectorSearcher()
+        with patch("rag.data.vector_store.VectorStoreLoader") as mock_vector_store:
+            with patch("rag.data.vector_store.QdrantClientCustom"):
+                VectorSearcher()
 
-            mock_qdrant_client.assert_called_once()
-            assert searcher.qdrant_client is not None
-            assert searcher.vector_store is not None
+                mock_vector_store.assert_called_once()
 
     def test_init_custom_dependencies(self):
         """Test initialization with custom dependencies."""
@@ -685,16 +692,16 @@ class TestVectorSearcher:
         assert call_args[1]["course_filter"] is None  # default course_filter
 
 
-class TestVectorSearcherIntegration:
-    """Integration tests for VectorSearcher with real-like dependencies."""
+class TestVectorSearcherIntegration:  # pylint: disable=attribute-defined-outside-init
+    """Integration tests for VectorSearcher."""
 
     def setup_method(self):
-        """Set up integration test fixtures."""
+        """Set up test fixtures."""
         self.mock_qdrant_client = Mock(spec=QdrantClientCustom)
-        self.mock_qdrant_client.qdrant = Mock()
+        self.mock_qdrant_client.qdrant = Mock()  # Add the qdrant attribute
 
-        # Create VectorSearcher with mocked Qdrant client
-        self.vector_searcher = VectorSearcher(embedding_model="test-embedding-model", qdrant_client=self.mock_qdrant_client)
+        # Create the vector searcher
+        self.vector_searcher = VectorSearcher(qdrant_client=self.mock_qdrant_client)
 
     @patch("rag.data.vector_store.TextEmbedding")
     def test_search_integration_success(self, mock_text_embedding):
