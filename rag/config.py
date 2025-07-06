@@ -39,6 +39,7 @@ INDEX_SETTINGS: Dict[str, Any] = {
             "question": {"type": "text"},
             "course": {"type": "keyword"},
             "doc_id": {"type": "keyword"},
+            "full_text": {"type": "text"},
         },
     },
 }
