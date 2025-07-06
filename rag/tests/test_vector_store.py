@@ -55,8 +55,10 @@ class TestVectorStoreLoader:
         vector_store = VectorStoreLoader(qdrant_client=custom_client)
         assert vector_store.qdrant_client is custom_client
 
-    def test_init_custom_embedding_model(self):
+    @patch("rag.data.vector_store.QdrantClientCustom")
+    def test_init_custom_embedding_model(self, mock_qdrant_client_class):
         """Test initialization with custom embedding model."""
+        mock_qdrant_client_class.return_value = Mock()
         vector_store = VectorStoreLoader(embedding_model="custom-model")
         assert vector_store.embedding_model_name == "custom-model"
 
@@ -261,10 +263,11 @@ class TestQdrantVectorLoader:
         """Test initialization with default dependencies."""
         with patch("rag.data.vector_store.DocumentLoader") as mock_doc_loader:
             with patch("rag.data.vector_store.VectorStoreLoader") as mock_vector_store:
-                QdrantVectorLoader()
+                with patch("rag.data.vector_store.QdrantClientCustom") as mock_qdrant_client:
+                    QdrantVectorLoader()
 
-                mock_doc_loader.assert_called_once()
-                mock_vector_store.assert_called_once()
+                    mock_doc_loader.assert_called_once()
+                    mock_vector_store.assert_called_once()
 
     def test_init_custom_dependencies(self):
         """Test initialization with custom dependencies."""
