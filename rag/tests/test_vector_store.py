@@ -263,7 +263,7 @@ class TestQdrantVectorLoader:
         """Test initialization with default dependencies."""
         with patch("rag.data.vector_store.DocumentLoader") as mock_doc_loader:
             with patch("rag.data.vector_store.VectorStoreLoader") as mock_vector_store:
-                with patch("rag.data.vector_store.QdrantClientCustom") as mock_qdrant_client:
+                with patch("rag.data.vector_store.QdrantClientCustom"):
                     QdrantVectorLoader()
 
                     mock_doc_loader.assert_called_once()
