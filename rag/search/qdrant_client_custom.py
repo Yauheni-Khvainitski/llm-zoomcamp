@@ -86,8 +86,7 @@ class QdrantClientCustom:
             raise
 
     def collection_exists(self, collection_name: str) -> bool:
-        """
-        Check if a collection exists.
+        """Check if a collection exists.
 
         Args:
             collection_name: Name of the collection to check
@@ -114,8 +113,7 @@ class QdrantClientCustom:
             raise
 
     def delete_collection(self, collection_name: str) -> bool:
-        """
-        Delete a Qdrant collection.
+        """Delete a Qdrant collection.
 
         Args:
             collection_name: Name of the collection to delete (REQUIRED)

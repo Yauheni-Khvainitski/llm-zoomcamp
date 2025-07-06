@@ -1,5 +1,4 @@
-"""
-Pipeline package for RAG system.
+"""Pipeline package for RAG system.
 
 Contains the main RAG pipeline that orchestrates all components.
 """

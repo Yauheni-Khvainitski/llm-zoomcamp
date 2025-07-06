@@ -1,5 +1,4 @@
-"""
-OpenAI client for RAG system.
+"""OpenAI client for RAG system.
 
 Handles communication with OpenAI's API for generating responses.
 """
@@ -19,8 +18,7 @@ class OpenAIClient:
     """Client for interacting with OpenAI's API."""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, load_env: bool = True):
-        """
-        Initialize the OpenAI client.
+        """Initialize the OpenAI client.
 
         Args:
             api_key: OpenAI API key (loads from env if not provided)
@@ -57,8 +55,7 @@ class OpenAIClient:
     def get_response(
         self, prompt: str, model: Optional[str] = None, temperature: float = 0.0, max_tokens: Optional[int] = None, **kwargs
     ) -> str:
-        """
-        Get a response from OpenAI for the given prompt.
+        """Get a response from OpenAI for the given prompt.
 
         Args:
             prompt: The prompt to send to the model
@@ -99,8 +96,7 @@ class OpenAIClient:
             raise
 
     def get_response_with_usage(self, prompt: str, model: Optional[str] = None, **kwargs) -> Dict[str, Any]:
-        """
-        Get a response from OpenAI with usage information.
+        """Get a response from OpenAI with usage information.
 
         Args:
             prompt: The prompt to send to the model
@@ -134,8 +130,7 @@ class OpenAIClient:
             raise
 
     def estimate_tokens(self, text: str) -> int:
-        """
-        Estimate the number of tokens in a text.
+        """Estimate the number of tokens in a text.
 
         Args:
             text: Text to estimate tokens for
@@ -147,8 +142,7 @@ class OpenAIClient:
         return len(text) // 4
 
     def calculate_cost(self, prompt_tokens: int, completion_tokens: int, model: Optional[str] = None) -> Dict[str, float]:
-        """
-        Calculate the cost of an API call.
+        """Calculate the cost of an API call.
 
         Args:
             prompt_tokens: Number of prompt tokens
@@ -179,8 +173,7 @@ class OpenAIClient:
         return {"input_cost": input_cost, "output_cost": output_cost, "total_cost": total_cost, "model": model}
 
     def set_model(self, model: str) -> None:
-        """
-        Set the default model for this client.
+        """Set the default model for this client.
 
         Args:
             model: Model name to use as default
@@ -189,8 +182,7 @@ class OpenAIClient:
         logger.info(f"Set default model to {model}")
 
     def list_available_models(self) -> list:
-        """
-        List available models (requires API call).
+        """List available models (requires API call).
 
         Returns:
             List of available model names

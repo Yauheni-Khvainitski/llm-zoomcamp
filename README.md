@@ -15,7 +15,8 @@ rag/
 │   └── course.py              # Course enum with helper methods
 ├── data/                       # Data loading and processing
 │   ├── __init__.py
-│   └── loader.py              # DocumentLoader for fetching documents
+│   ├── loader.py              # DocumentLoader for fetching documents
+│   └── vector_store.py        # VectorStoreLoader and QdrantVectorLoader
 ├── search/                     # Search and retrieval
 │   ├── __init__.py
 │   ├── elasticsearch_client.py # Elasticsearch operations
@@ -56,6 +57,8 @@ This system now supports **dual search backends**:
 - Semantic similarity search using embeddings
 - Support for `jinaai/jina-embeddings-v2-small-en` model
 - 512-dimensional vector space
+- Automatic document-to-vector conversion with VectorStoreLoader
+- High-level APIs for easy integration with QdrantVectorLoader
 - Cosine similarity matching
 
 ### **Configuration**
@@ -176,7 +179,7 @@ The project includes comprehensive unit tests for all components, **including ne
 ### Running Tests
 
 ```bash
-# Run all tests (now 109+ tests including Qdrant)
+# Run all tests (now 153 tests including Qdrant and Vector Store)
 python -m pytest rag/tests/ -v
 
 # Run tests with coverage
@@ -184,6 +187,9 @@ python -m pytest rag/tests/ --cov=rag --cov-report=html
 
 # Run specific test module
 python -m pytest rag/tests/test_qdrant_client.py -v
+
+# Test vector store functionality  
+python -m pytest rag/tests/test_vector_store.py -v
 
 # Run custom test runner
 python -m rag.tests.test_runner
@@ -203,6 +209,7 @@ The test suite includes:
 - **OpenAI Client Tests**: API interactions, cost calculation, error handling
 - **Elasticsearch Client Tests**: Index operations, document management
 - **Qdrant Client Tests**: 🆕 Vector database initialization, connection handling
+- **Vector Store Tests**: 🆕 Embedding generation, point creation, document loading
 - **RAG Pipeline Tests**: End-to-end functionality, integration testing
 
 ### Using Make for Testing
@@ -255,8 +262,36 @@ pipeline = RAGPipeline(
     documents_url="https://custom-docs.json"
 )
 
-# Using Qdrant for vector search (future implementation)
-# qdrant_client = QdrantClientCustom("http://localhost:6333")
+# Using Qdrant for vector search
+from rag.data.vector_store import QdrantVectorLoader
+from rag.search.qdrant_client_custom import QdrantClientCustom
+
+# High-level interface for loading documents to Qdrant
+# DocumentLoader automatically creates 'full_text' field by combining 'question' + 'text'
+qdrant_loader = QdrantVectorLoader()
+
+# Setup collection with all documents
+result = qdrant_loader.setup_collection(
+    collection_name="course-docs",
+    delete_if_exists=True
+)
+print(f"Loaded {result['documents_loaded']} documents")
+
+# Or setup with course filter
+ml_result = qdrant_loader.setup_collection(
+    collection_name="ml-docs",
+    course_filter="machine-learning-zoomcamp",
+    delete_if_exists=True
+)
+
+# Low-level vector operations
+from rag.data.vector_store import VectorStoreLoader
+
+vector_store = VectorStoreLoader()
+# Note: documents must have 'full_text' field (auto-created by DocumentLoader)
+embeddings = vector_store.generate_embeddings(documents)
+points = vector_store.create_points(documents, embeddings)
+uploaded = vector_store.load_to_qdrant("my-collection", documents)
 ```
 
 ## 📊 Usage Examples
@@ -432,6 +467,8 @@ python -m pytest rag/tests/test_query_builder.py::TestQueryBuilder::test_build_s
 - **`DocumentLoader`**: Handles document fetching and processing
 - **`ElasticsearchClient`**: Manages Elasticsearch operations
 - **`QdrantClientCustom`**: 🆕 Manages Qdrant vector database operations
+- **`VectorStoreLoader`**: 🆕 Handles embedding generation and vector database operations
+- **`QdrantVectorLoader`**: 🆕 High-level interface for loading documents to Qdrant
 - **`QueryBuilder`**: Constructs search queries
 - **`ContextFormatter`**: Formats documents and builds prompts
 - **`OpenAIClient`**: Handles OpenAI API interactions
@@ -482,8 +519,10 @@ python example_usage.py
 ## 🆕 Recent Updates
 
 - **✅ Qdrant Integration**: Added vector database support for semantic search
+- **✅ Vector Store Implementation**: Complete vector store functionality with VectorStoreLoader and QdrantVectorLoader
 - **✅ Security Updates**: Updated urllib3 to v2.5.0 to fix vulnerabilities  
 - **✅ Simplified Dependencies**: Removed Safety CLI for streamlined workflow
-- **✅ Enhanced Testing**: Added comprehensive Qdrant client tests
+- **✅ Enhanced Testing**: Added comprehensive Qdrant client and vector store tests (153 total tests)
 - **✅ Code Quality**: Fixed docstring formatting and linting issues
 - **✅ Docker Support**: Added Qdrant service to docker-compose.yml
+- **✅ CI/CD Integration**: Added vector store integration tests to GitHub Actions

@@ -2,195 +2,204 @@
 """
 Example usage of the RAG system.
 
-This script demonstrates how to use the structured RAG system
-that was extracted from the rag.ipynb notebook.
+This script demonstrates:
+1. Full RAG pipeline with Elasticsearch (including question answering)
+2. Basic vector store operations with Qdrant
 """
 
 import logging
 import os
-
 from dotenv import load_dotenv
 
-from rag import Course, RAGPipeline
+from rag import RAGPipeline
+from rag.data.vector_store import VectorStoreLoader, QdrantVectorLoader
+from rag.search.qdrant_client_custom import QdrantClientCustom
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def demonstrate_full_rag():
+    """Demonstrate full RAG pipeline with Elasticsearch - including question answering."""
+    print("\n🤖 Full RAG Pipeline Demonstration (Elasticsearch)")
+    print("=" * 60)
+    
+    rag = RAGPipeline()
+    
+    # Health check
+    print("1. Health Check")
+    print("-" * 30)
+    health = rag.health_check()
+    print(f"Status: {health}")
+    
+    if not health["elasticsearch"]:
+        print("❌ Elasticsearch not available - skipping RAG demo")
+        print("   Run: docker-compose up -d")
+        return
+    
+    # Setup and load documents
+    print("\n2. Document Loading")
+    print("-" * 30)
+    setup_result = rag.setup_index()
+    print(f"✅ Documents loaded: {setup_result['documents_loaded']}")
+    
+    # Interactive question answering
+    print("\n3. Question Answering Demo")
+    print("-" * 30)
+    
+    # Sample questions
+    sample_questions = [
+        "What is the difference between supervised and unsupervised learning?",
+        "How do I prepare data for machine learning?",
+        "What are the steps in a typical ML workflow?",
+        "How do I evaluate a machine learning model?",
+        "What is feature engineering?"
+    ]
+    
+    print("Sample questions available:")
+    for i, q in enumerate(sample_questions, 1):
+        print(f"  {i}. {q}")
+    
+    print("\nYou can:")
+    print("• Enter a number (1-5) to ask a sample question")
+    print("• Type your own question")
+    print("• Type 'quit' to exit")
+    
+    while True:
+        print("\n" + "─" * 50)
+        user_input = input("\n🤔 Your question (or 'quit'): ").strip()
+        
+        if user_input.lower() == 'quit':
+            break
+        
+        # Handle numbered questions
+        if user_input.isdigit():
+            try:
+                question_num = int(user_input)
+                if 1 <= question_num <= len(sample_questions):
+                    question = sample_questions[question_num - 1]
+                else:
+                    print("❌ Please enter a number between 1 and 5")
+                    continue
+            except ValueError:
+                print("❌ Invalid input")
+                continue
+        else:
+            question = user_input
+        
+        if not question:
+            print("❌ Please enter a question")
+            continue
+        
+        print(f"\n🤔 Question: {question}")
+        print("🔍 Searching for relevant documents...")
+        
+        try:
+            # Get answer from RAG pipeline
+            answer = rag.ask(question)
+            
+            print(f"\n🤖 Answer:")
+            print("-" * 30)
+            print(answer)
+            
+        except Exception as e:
+            logger.error(f"Error getting answer: {e}")
+            print(f"❌ Error: {e}")
+    
+    print("\n✅ RAG demonstration completed!")
+
+
+def demonstrate_vector_store():
+    """Demonstrate basic vector store operations with Qdrant."""
+    print("\n🔍 Vector Store Operations (Qdrant)")
+    print("=" * 50)
+    
+    # Check Qdrant availability
+    try:
+        qdrant_client = QdrantClientCustom()
+        print(f"✅ Qdrant connected: {qdrant_client.qdrant_url}")
+    except Exception as e:
+        print(f"❌ Qdrant not available: {e}")
+        print("   Run: docker-compose up -d")
+        return
+    
+    # Create test collection name
+    test_collection = "test-collection"
+    
+    try:
+        # Use QdrantVectorLoader for operations
+        qdrant_loader = QdrantVectorLoader()
+        
+        print("\n1. Creating Test Collection")
+        print("-" * 30)
+        
+        # Create test collection with ML course documents only (smaller dataset)
+        result = qdrant_loader.setup_collection(
+            collection_name=test_collection,
+            course_filter="machine-learning-zoomcamp",
+            delete_if_exists=True
+        )
+        
+        print(f"✅ Test collection created:")
+        print(f"   Collection: {result['collection_name']}")
+        print(f"   Documents: {result['documents_loaded']}")
+        print(f"   Points uploaded: {result['points_uploaded']}")
+        
+        print("\n2. Collection Statistics")
+        print("-" * 30)
+        
+        collections_info = qdrant_client.qdrant.get_collections()
+        collections = [collection.name for collection in collections_info.collections]
+        print(f"📊 Available collections: {len(collections)}")
+        
+        for collection in collections:
+            info = qdrant_client.qdrant.get_collection(collection)
+            print(f"   • {collection}: {info.points_count} points")
+        
+        print("\n3. Cleaning Up")
+        print("-" * 30)
+        
+        # Delete test collection
+        qdrant_client.delete_collection(test_collection)
+        print(f"✅ Test collection '{test_collection}' deleted")
+        
+        print("\n✅ Vector store operations completed!")
+        
+    except Exception as e:
+        logger.error(f"Error in vector store operations: {e}")
+        print(f"❌ Error: {e}")
+
+
 def main():
     """Main example function."""
-    print("🚀 RAG System Example Usage")
-    print("=" * 50)
-
+    print("🚀 RAG System - Complete Demonstration")
+    print("=" * 60)
+    
     # Load environment variables
     load_dotenv()
-
-    # Check if OpenAI API key is available
-    if not os.getenv("OPENAI_API_KEY"):
-        print("⚠️  Warning: OPENAI_API_KEY not found in environment")
-        print("   Create a .env file with your API key to test LLM functionality")
-
+    
     try:
-        # Initialize the RAG pipeline
-        print("\n1. Initializing RAG Pipeline...")
-        rag = RAGPipeline()
-
-        # Perform health check
-        print("\n2. Performing Health Check...")
-        health = rag.health_check()
-        print(f"Health Status: {health}")
-
-        if not health["elasticsearch"]:
-            print("❌ Elasticsearch is not available. Please start Elasticsearch first.")
-            print("   Run: docker-compose up -d")
-            return
-
-        # Set up the index and load documents
-        print("\n3. Setting up Index and Loading Documents...")
-        setup_result = rag.setup_index()
-        print("✅ Setup complete:")
-        print(f"   - Documents loaded: {setup_result['documents_loaded']}")
-        print(f"   - Documents indexed: {setup_result['documents_indexed']}")
-
-        # Get system statistics
-        print("\n4. System Statistics...")
-        stats = rag.get_stats()
-        print(f"📊 Stats: {stats}")
-
-        # Example 1: Basic question without course filter
-        print("\n5. Example 1: Basic Question (All Courses)")
-        print("-" * 30)
-        question1 = "How do I copy files to a Docker container?"
-        print(f"Question: {question1}")
-
-        try:
-            response1 = rag.ask(question1)
-            print(f"Response: {response1}")
-        except Exception as e:
-            print(f"Error: {e}")
-
-        # Example 2: Question with course filter
-        print("\n6. Example 2: Question with Course Filter")
-        print("-" * 30)
-        question2 = "How do I debug a Docker container?"
-        course_filter = Course.MACHINE_LEARNING_ZOOMCAMP
-        print(f"Question: {question2}")
-        print(f"Course Filter: {course_filter.value}")
-
-        try:
-            response2 = rag.ask(question2, course_filter=course_filter)
-            print(f"Response: {response2}")
-        except Exception as e:
-            print(f"Error: {e}")
-
-        # Example 3: Detailed response with metadata
-        print("\n7. Example 3: Detailed Response with Metadata")
-        print("-" * 30)
-        question3 = "What is the difference between Docker and Kubernetes?"
-
-        try:
-            result = rag.ask_with_details(question=question3, course_filter=Course.DATA_ENGINEERING_ZOOMCAMP, num_results=3)
-
-            print(f"Question: {result['question']}")
-            print(f"Response: {result['response']}")
-            print(f"Total Hits: {result['search_results']['total_hits']}")
-            print(f"Max Score: {result['search_results']['max_score']}")
-            print(f"Documents Used: {len(result['search_results']['documents'])}")
-            print(f"Model Used: {result['metadata']['model']}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-        # Example 4: Using individual components
-        print("\n8. Example 4: Using Individual Components")
-        print("-" * 30)
-
-        # Search only (without LLM)
-        documents = rag.search(question="How to set up Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP, num_results=2)
-
-        print(f"Search Results: {len(documents)} documents found")
-        for i, doc in enumerate(documents, 1):
-            print(f"  {i}. {doc['question'][:60]}...")
-
-        # Example 5: Test homework questions from the notebook
-        print("\n9. Example 5: Homework Questions")
-        print("-" * 30)
-
-        # Q3: Searching
-        homework_q3 = "How do execute a command on a Kubernetes pod?"
-        search_raw = rag.search(homework_q3, return_raw=True)
-        max_score = search_raw["hits"]["max_score"]
-        print(f"Q3 - Max Score: {max_score}")
-
-        # Q4: Filtering
-        homework_q4 = "How do copy a file to a Docker container?"
-        filtered_docs = rag.search(homework_q4, course_filter=Course.MACHINE_LEARNING_ZOOMCAMP, num_results=3)
-        if len(filtered_docs) >= 3:
-            third_doc_text = filtered_docs[2]["text"][:100] + "..."
-            print(f"Q4 - Third document text: {third_doc_text}")
-
-        print("\n✅ Example usage completed successfully!")
-
+        # Part 1: Full RAG Pipeline with Elasticsearch
+        demonstrate_full_rag()
+        
+        # Part 2: Vector Store Operations with Qdrant
+        demonstrate_vector_store()
+        
+        print("\n" + "=" * 60)
+        print("✅ All demonstrations completed!")
+        print("\nWhat was demonstrated:")
+        print("• Full RAG pipeline with question answering (Elasticsearch)")
+        print("• Vector store operations: create, load, delete (Qdrant)")
+        print("\nNext steps:")
+        print("• Integrate Qdrant with RAG pipeline for similarity search")
+        print("• Test with different embedding models")
+        print("• Build production-ready applications")
+        
     except Exception as e:
         logger.error(f"Error in main execution: {e}")
         print(f"❌ Error: {e}")
 
 
-def test_components():
-    """Test individual components."""
-    print("\n🧪 Testing Individual Components")
-    print("=" * 50)
-
-    # Test QueryBuilder
-    from rag.models import Course
-    from rag.search import QueryBuilder
-
-    print("\n1. Testing QueryBuilder...")
-    query_builder = QueryBuilder()
-
-    # Test with course filter
-    query = query_builder.build_search_query(
-        question="Test question", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP, num_results=5, boost=6
-    )
-    print(f"✅ Query with filter: {query['size']} results, course filter present")
-
-    # Test without course filter
-    query_no_filter = query_builder.build_search_query(question="Test question", num_results=10)
-    print(f"✅ Query without filter: {query_no_filter['size']} results, no filter")
-
-    # Test ContextFormatter
-    from rag.formatting import ContextFormatter
-
-    print("\n2. Testing ContextFormatter...")
-    formatter = ContextFormatter()
-
-    sample_docs = [
-        {"question": "What is Docker?", "text": "Docker is a containerization platform."},
-        {"question": "What is Kubernetes?", "text": "Kubernetes is a container orchestration system."},
-    ]
-
-    context = formatter.format_context(sample_docs)
-    print(f"✅ Formatted context ({len(context)} chars):")
-    print(context[:100] + "..." if len(context) > 100 else context)
-
-    prompt = formatter.build_prompt("What is containerization?", context)
-    print(f"✅ Built prompt ({len(prompt)} chars)")
-
-    print("\n✅ Component testing completed!")
-
-
 if __name__ == "__main__":
-    print("RAG System - Structured Implementation")
-    print("Based on rag.ipynb notebook")
-    print("=" * 60)
-
-    # Run main examples
     main()
-
-    # Test individual components
-    test_components()
-
-    print("\n" + "=" * 60)
-    print("For more examples, see the README.md file")
-    print("To run tests: python -m rag.tests.test_query_builder")

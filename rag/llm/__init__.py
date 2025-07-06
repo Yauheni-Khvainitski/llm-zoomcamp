@@ -1,5 +1,4 @@
-"""
-LLM package for RAG system.
+"""LLM package for RAG system.
 
 Contains integrations with various language model providers.
 """

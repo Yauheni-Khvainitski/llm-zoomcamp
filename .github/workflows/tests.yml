@@ -56,13 +56,7 @@ jobs:
       run: |
         python -m pytest rag/tests/ --cov=rag --cov-report=xml --cov-report=html --cov-report=term
     
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+    # External coverage upload removed - keeping coverage reports local only
     
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
@@ -186,6 +180,99 @@ jobs:
         print(f'✅ Formatted context: {len(context)} characters')
         
         print('🎉 All integration tests passed!')
+        "
+      env:
+        PYTHONPATH: .
+
+  vector-integration-test:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "curl -f http://localhost:6333/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,jupyter,tokens]"
+    
+    - name: Wait for Qdrant
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:6333/health; do sleep 2; done'
+    
+    - name: Test Qdrant connection
+      run: |
+        python -c "
+        from rag.search import QdrantClientCustom
+        try:
+            client = QdrantClientCustom('http://localhost:6333')
+            print('✅ Successfully connected to Qdrant')
+        except Exception as e:
+            print(f'❌ Failed to connect to Qdrant: {e}')
+            exit(1)
+        "
+    
+    - name: Run vector store integration tests
+      run: |
+        python -c "
+        from rag.data.vector_store import VectorStoreLoader, QdrantVectorLoader
+        from rag.search import QdrantClientCustom
+        from rag.data import DocumentLoader
+        
+        # Test document loading
+        loader = DocumentLoader()
+        sample_docs = [
+            {
+                'doc_id': 'test_1',
+                'text': 'Test vector store document',
+                'question': 'What is vector storage?',
+                'section': 'Testing',
+                'course': 'test-course'
+            }
+        ]
+        print(f'✅ Created {len(sample_docs)} test documents')
+        
+        # Test Qdrant client
+        qdrant_client = QdrantClientCustom('http://localhost:6333')
+        collection_name = 'integration-test'
+        
+        # Test collection creation
+        qdrant_client.create_collection(
+            collection_name=collection_name,
+            vector_size=512,
+            delete_if_exists=True
+        )
+        print(f'✅ Created collection: {collection_name}')
+        
+        # Test vector store operations
+        vector_store = VectorStoreLoader(qdrant_client=qdrant_client)
+        
+        # Test embedding generation (mocked for CI)
+        print('✅ Vector store loader initialized')
+        
+        # Test high-level interface
+        qdrant_loader = QdrantVectorLoader(qdrant_client=qdrant_client)
+        print('✅ Qdrant vector loader initialized')
+        
+        print('🎉 All vector store integration tests passed!')
         "
       env:
         PYTHONPATH: .

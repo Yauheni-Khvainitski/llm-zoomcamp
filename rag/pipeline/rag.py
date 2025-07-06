@@ -1,5 +1,4 @@
-"""
-Main RAG pipeline for the system.
+"""Main RAG pipeline for the system.
 
 Orchestrates document loading, indexing, searching, and response generation.
 """
@@ -28,8 +27,7 @@ class RAGPipeline:
         openai_api_key: Optional[str] = None,
         openai_model: Optional[str] = None,
     ):
-        """
-        Initialize the RAG pipeline.
+        """Initialize the RAG pipeline.
 
         Args:
             es_url: Elasticsearch URL
@@ -49,8 +47,7 @@ class RAGPipeline:
         logger.info("RAG pipeline initialized")
 
     def setup_index(self, load_documents: bool = True, delete_existing: bool = True) -> Dict[str, Any]:
-        """
-        Set up the Elasticsearch index and optionally load documents.
+        """Set up the Elasticsearch index and optionally load documents.
 
         Args:
             load_documents: Whether to load and index documents
@@ -87,8 +84,7 @@ class RAGPipeline:
         boost: int = 4,
         return_raw: bool = False,
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
-        """
-        Search for relevant documents.
+        """Search for relevant documents.
 
         Args:
             question: The question to search for
@@ -118,8 +114,7 @@ class RAGPipeline:
     def generate_response(
         self, question: str, documents: List[Dict[str, Any]], model: Optional[str] = None, include_context: bool = False
     ) -> Dict[str, Any]:
-        """
-        Generate a response using the LLM.
+        """Generate a response using the LLM.
 
         Args:
             question: The user's question
@@ -156,8 +151,7 @@ class RAGPipeline:
         model: Optional[str] = None,
         debug: bool = False,
     ) -> str:
-        """
-        Ask a question and get a response (end-to-end RAG).
+        """Ask a question and get a response (end-to-end RAG).
 
         Args:
             question: The question to ask
@@ -197,8 +191,7 @@ class RAGPipeline:
         boost: int = 4,
         model: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Ask a question and get detailed response information.
+        """Ask a question and get detailed response information.
 
         Args:
             question: The question to ask
@@ -258,8 +251,7 @@ class RAGPipeline:
         print("=" * 50)
 
     def get_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about the RAG system.
+        """Get statistics about the RAG system.
 
         Returns:
             Dictionary with system statistics
@@ -282,8 +274,7 @@ class RAGPipeline:
             return {"error": str(e)}
 
     def health_check(self) -> Dict[str, bool]:
-        """
-        Perform a health check on all components.
+        """Perform a health check on all components.
 
         Returns:
             Dictionary with health status of each component
