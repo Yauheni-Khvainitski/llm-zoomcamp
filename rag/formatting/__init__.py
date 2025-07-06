@@ -1,5 +1,4 @@
-"""
-Formatting package for RAG system.
+"""Formatting package for RAG system.
 
 Contains functionality for formatting documents and building prompts.
 """

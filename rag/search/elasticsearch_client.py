@@ -1,5 +1,4 @@
-"""
-Elasticsearch client for RAG system.
+"""Elasticsearch client for RAG system.
 
 Handles connection to Elasticsearch, index management, and document operations.
 """
@@ -20,8 +19,7 @@ class ElasticsearchClient:
     """Elasticsearch client for document indexing and searching."""
 
     def __init__(self, es_url: str = ELASTICSEARCH_URL):
-        """
-        Initialize the Elasticsearch client.
+        """Initialize the Elasticsearch client.
 
         Args:
             es_url: Elasticsearch URL
@@ -39,8 +37,7 @@ class ElasticsearchClient:
             raise
 
     def get_client(self) -> Elasticsearch:
-        """
-        Get the Elasticsearch client instance.
+        """Get the Elasticsearch client instance.
 
         Returns:
             Elasticsearch client
@@ -48,8 +45,7 @@ class ElasticsearchClient:
         return self.es
 
     def create_index(self, index_name: str, settings: Optional[Dict[str, Any]] = None, delete_if_exists: bool = False) -> bool:
-        """
-        Create an Elasticsearch index.
+        """Create an Elasticsearch index.
 
         Args:
             index_name: Name of the index to create (REQUIRED)
@@ -87,8 +83,7 @@ class ElasticsearchClient:
             raise
 
     def delete_index(self, index_name: str) -> bool:
-        """
-        Delete an Elasticsearch index.
+        """Delete an Elasticsearch index.
 
         Args:
             index_name: Name of the index to delete (REQUIRED)
@@ -108,8 +103,7 @@ class ElasticsearchClient:
             raise
 
     def index_document(self, document: Dict[str, Any], index_name: str, doc_id: Optional[str] = None) -> bool:
-        """
-        Index a single document.
+        """Index a single document.
 
         Args:
             document: Document to index
@@ -130,8 +124,7 @@ class ElasticsearchClient:
             raise
 
     def index_documents(self, documents: List[Dict[str, Any]], index_name: str, show_progress: bool = True) -> int:
-        """
-        Index multiple documents.
+        """Index multiple documents.
 
         Args:
             documents: List of documents to index
@@ -159,8 +152,7 @@ class ElasticsearchClient:
     def search_documents(
         self, query: Dict[str, Any], index_name: str, return_raw: bool = False
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
-        """
-        Search documents in Elasticsearch.
+        """Search documents in Elasticsearch.
 
         Args:
             query: Elasticsearch query
@@ -182,8 +174,7 @@ class ElasticsearchClient:
             raise
 
     def count_documents(self, index_name: str) -> int:
-        """
-        Count documents in an index.
+        """Count documents in an index.
 
         Args:
             index_name: Index name (REQUIRED)
@@ -199,8 +190,7 @@ class ElasticsearchClient:
             raise
 
     def count_documents_with_query(self, index_name: str, query: Dict[str, Any]) -> int:
-        """
-        Count documents in an index with a query.
+        """Count documents in an index with a query.
 
         Args:
             index_name: Index name (REQUIRED)
@@ -217,8 +207,7 @@ class ElasticsearchClient:
             raise
 
     def get_document(self, doc_id: str, index_name: str) -> Union[Dict[str, Any], None]:
-        """
-        Get a document by ID.
+        """Get a document by ID.
 
         Args:
             doc_id: Document ID to retrieve
@@ -238,8 +227,7 @@ class ElasticsearchClient:
             raise
 
     def delete_document(self, doc_id: str, index_name: str) -> bool:
-        """
-        Delete a document by ID.
+        """Delete a document by ID.
 
         Args:
             doc_id: Document ID to delete
@@ -260,8 +248,7 @@ class ElasticsearchClient:
             raise
 
     def health_check(self) -> bool:
-        """
-        Check if Elasticsearch is available.
+        """Check if Elasticsearch is available.
 
         Returns:
             True if Elasticsearch is available
@@ -273,8 +260,7 @@ class ElasticsearchClient:
             return False
 
     def index_exists(self, index_name: str) -> bool:
-        """
-        Check if an index exists.
+        """Check if an index exists.
 
         Args:
             index_name: Index name (REQUIRED)

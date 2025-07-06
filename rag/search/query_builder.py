@@ -1,5 +1,4 @@
-"""
-Query builder for Elasticsearch searches.
+"""Query builder for Elasticsearch searches.
 
 Handles building search queries with optional course filtering.
 """
@@ -17,8 +16,7 @@ class QueryBuilder:
     """Builds Elasticsearch queries for document search."""
 
     def __init__(self, default_num_results: int = DEFAULT_NUM_RESULTS, default_boost: int = DEFAULT_BOOST_FACTOR):
-        """
-        Initialize the query builder.
+        """Initialize the query builder.
 
         Args:
             default_num_results: Default number of results to return
@@ -34,8 +32,7 @@ class QueryBuilder:
         num_results: Optional[int] = None,
         boost: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """
-        Build an Elasticsearch search query.
+        """Build an Elasticsearch search query.
 
         Args:
             question: The question to search for
@@ -72,8 +69,7 @@ class QueryBuilder:
         return search_query
 
     def build_match_all_query(self, num_results: Optional[int] = None) -> Dict[str, Any]:
-        """
-        Build a query that matches all documents.
+        """Build a query that matches all documents.
 
         Args:
             num_results: Number of results to return
@@ -87,8 +83,7 @@ class QueryBuilder:
         return {"size": num_results, "query": {"match_all": {}}}
 
     def build_term_query(self, field: str, value: str, num_results: Optional[int] = None) -> Dict[str, Any]:
-        """
-        Build a simple term query for exact matches.
+        """Build a simple term query for exact matches.
 
         Args:
             field: Field to search in

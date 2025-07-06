@@ -1,5 +1,4 @@
-"""
-Document loader for RAG system.
+"""Document loader for RAG system.
 
 Handles loading documents from external sources and preprocessing them.
 """
@@ -20,8 +19,7 @@ class DocumentLoader:
     """Handles loading and preprocessing of documents for the RAG system."""
 
     def __init__(self, documents_url: str = DOCUMENTS_URL):
-        """
-        Initialize the document loader.
+        """Initialize the document loader.
 
         Args:
             documents_url: URL to fetch documents from
@@ -30,8 +28,7 @@ class DocumentLoader:
         self.documents: List[Dict[str, Any]] = []
 
     def generate_id(self, doc: Dict[str, Any]) -> str:
-        """
-        Generate a unique ID for a document using MD5 hash.
+        """Generate a unique ID for a document using MD5 hash.
 
         Args:
             doc: Document dictionary
@@ -44,8 +41,7 @@ class DocumentLoader:
         return doc_hash
 
     def fetch_documents(self) -> List[Dict[str, Any]]:
-        """
-        Fetch documents from the configured URL.
+        """Fetch documents from the configured URL.
 
         Returns:
             Raw documents data
@@ -64,8 +60,7 @@ class DocumentLoader:
             raise
 
     def process_documents(self, documents_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Process raw documents by adding course information and unique IDs.
+        """Process raw documents by adding course information and unique IDs.
 
         Args:
             documents_raw: Raw documents from the source
@@ -86,14 +81,16 @@ class DocumentLoader:
                 doc_id = self.generate_id(doc)
                 doc["doc_id"] = doc_id
 
+                # Combine question and text for better context if available
+                doc["full_text"] = doc["question"] + " " + doc["text"]
+
                 processed_documents.append(doc)
 
         logger.info(f"Processed {len(processed_documents)} documents")
         return processed_documents
 
     def load_documents(self) -> List[Dict[str, Any]]:
-        """
-        Load and process documents from the configured source.
+        """Load and process documents from the configured source.
 
         Returns:
             List of processed documents
@@ -105,8 +102,7 @@ class DocumentLoader:
         return self.documents
 
     def get_documents_by_course(self, course: str) -> List[Dict[str, Any]]:
-        """
-        Get documents filtered by course.
+        """Get documents filtered by course.
 
         Args:
             course: Course name to filter by
@@ -120,8 +116,7 @@ class DocumentLoader:
         return [doc for doc in self.documents if doc["course"] == course]
 
     def get_document_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about loaded documents.
+        """Get statistics about loaded documents.
 
         Returns:
             Dictionary with document statistics

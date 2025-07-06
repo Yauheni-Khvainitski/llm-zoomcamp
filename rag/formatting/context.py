@@ -1,5 +1,4 @@
-"""
-Context formatting for RAG system.
+"""Context formatting for RAG system.
 
 Handles formatting documents into context strings and building prompts for LLMs.
 """
@@ -14,8 +13,7 @@ class ContextFormatter:
     """Formats documents into context strings and builds prompts for LLMs."""
 
     def __init__(self, context_template: Optional[str] = None, prompt_template: Optional[str] = None):
-        """
-        Initialize the context formatter.
+        """Initialize the context formatter.
 
         Args:
             context_template: Template for formatting individual documents
@@ -40,8 +38,7 @@ CONTEXT:
 {context}""".strip()
 
     def format_document(self, document: Dict[str, Any]) -> str:
-        """
-        Format a single document using the context template.
+        """Format a single document using the context template.
 
         Args:
             document: Document with fields needed by the template
@@ -59,8 +56,7 @@ CONTEXT:
             raise
 
     def format_context(self, documents: List[Dict[str, Any]]) -> str:
-        """
-        Format multiple documents into a context string.
+        """Format multiple documents into a context string.
 
         Args:
             documents: List of documents to format
@@ -84,8 +80,7 @@ CONTEXT:
         return context.strip()
 
     def build_prompt(self, question: str, context: str) -> str:
-        """
-        Build a complete prompt for the LLM.
+        """Build a complete prompt for the LLM.
 
         Args:
             question: The user's question
@@ -103,8 +98,7 @@ CONTEXT:
             raise
 
     def build_prompt_from_documents(self, question: str, documents: List[Dict[str, Any]]) -> str:
-        """
-        Build a complete prompt from question and documents.
+        """Build a complete prompt from question and documents.
 
         Args:
             question: The user's question
@@ -117,8 +111,7 @@ CONTEXT:
         return self.build_prompt(question, context)
 
     def set_context_template(self, template: str) -> None:
-        """
-        Set a custom context template.
+        """Set a custom context template.
 
         Args:
             template: New context template with {question} and {text} placeholders
@@ -127,8 +120,7 @@ CONTEXT:
         logger.info("Updated context template")
 
     def set_prompt_template(self, template: str) -> None:
-        """
-        Set a custom prompt template.
+        """Set a custom prompt template.
 
         Args:
             template: New prompt template with {question} and {context} placeholders
@@ -137,8 +129,7 @@ CONTEXT:
         logger.info("Updated prompt template")
 
     def get_context_stats(self, context: str) -> Dict[str, Any]:
-        """
-        Get statistics about a formatted context.
+        """Get statistics about a formatted context.
 
         Args:
             context: Formatted context string
