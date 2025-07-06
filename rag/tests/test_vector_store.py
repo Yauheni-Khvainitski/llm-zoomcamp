@@ -29,6 +29,7 @@ class TestVectorStoreLoader:  # pylint: disable=attribute-defined-outside-init
                 "question": "What is Docker?",
                 "course": "docker",
                 "section": "Introduction",
+                "full_text": "What is Docker? Docker is a containerization platform",
             },
             {
                 "doc_id": "test_doc_2",
@@ -36,6 +37,7 @@ class TestVectorStoreLoader:  # pylint: disable=attribute-defined-outside-init
                 "question": "What is Kubernetes?",
                 "course": "kubernetes",
                 "section": "Orchestration",
+                "full_text": "What is Kubernetes? Kubernetes is a container orchestration system",
             },
         ]
 
