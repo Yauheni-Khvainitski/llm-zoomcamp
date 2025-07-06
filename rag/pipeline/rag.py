@@ -6,8 +6,9 @@ Orchestrates document loading, indexing, searching, and response generation.
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from ..config import DEFAULT_INDEX_NAME, ELASTICSEARCH_URL
+from ..config import DEFAULT_COLLECTION_NAME, DEFAULT_INDEX_NAME, ELASTICSEARCH_URL
 from ..data.loader import DocumentLoader
+from ..data.vector_store import VectorSearcher
 from ..formatting.context import ContextFormatter
 from ..llm.openai_client import OpenAIClient
 from ..models.course import Course
@@ -17,32 +18,48 @@ from ..search.query_builder import QueryBuilder
 logger = logging.getLogger(__name__)
 
 
-class RAGPipeline:
+class RAGPipeline:  # pylint: disable=too-many-instance-attributes
     """Main RAG pipeline that orchestrates all components."""
 
     def __init__(
         self,
         es_url: str = ELASTICSEARCH_URL,
         index_name: str = DEFAULT_INDEX_NAME,
+        collection_name: Optional[str] = None,
         openai_api_key: Optional[str] = None,
         openai_model: Optional[str] = None,
+        document_loader: Optional["DocumentLoader"] = None,
+        es_client: Optional["ElasticsearchClient"] = None,
+        query_builder: Optional["QueryBuilder"] = None,
+        context_formatter: Optional["ContextFormatter"] = None,
+        llm_client: Optional["OpenAIClient"] = None,
+        vector_searcher: Optional["VectorSearcher"] = None,
     ):
         """Initialize the RAG pipeline.
 
         Args:
             es_url: Elasticsearch URL
             index_name: Elasticsearch index name
+            collection_name: Qdrant collection name for vector search
             openai_api_key: OpenAI API key
             openai_model: OpenAI model to use
+            document_loader: Optional DocumentLoader instance (for testing)
+            es_client: Optional ElasticsearchClient instance (for testing)
+            query_builder: Optional QueryBuilder instance (for testing)
+            context_formatter: Optional ContextFormatter instance (for testing)
+            llm_client: Optional OpenAIClient instance (for testing)
+            vector_searcher: Optional VectorSearcher instance (for testing)
         """
         self.index_name = index_name
+        self.collection_name = collection_name or DEFAULT_COLLECTION_NAME
 
-        # Initialize components
-        self.document_loader = DocumentLoader()
-        self.es_client = ElasticsearchClient(es_url=es_url)
-        self.query_builder = QueryBuilder()
-        self.context_formatter = ContextFormatter()
-        self.llm_client = OpenAIClient(api_key=openai_api_key, model=openai_model)
+        # Initialize components with dependency injection
+        self.document_loader = document_loader or DocumentLoader()
+        self.es_client = es_client or ElasticsearchClient(es_url=es_url)
+        self.query_builder = query_builder or QueryBuilder()
+        self.context_formatter = context_formatter or ContextFormatter()
+        self.llm_client = llm_client or OpenAIClient(api_key=openai_api_key, model=openai_model)
+        self.vector_searcher = vector_searcher or VectorSearcher()
 
         logger.info("RAG pipeline initialized")
 
@@ -111,6 +128,53 @@ class RAGPipeline:
             logger.debug(f"Search returned {len(results)} results")
             return results
 
+    def search_vector(
+        self,
+        question: str,
+        course_filter: Optional[Course] = None,
+        num_results: int = 5,
+        score_threshold: Optional[float] = None,
+        collection_name: Optional[str] = None,
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+        """Search for relevant documents using vector search.
+
+        Args:
+            question: The question to search for
+            course_filter: Optional course filter
+            num_results: Number of results to return
+            score_threshold: Minimum similarity score threshold
+            collection_name: Qdrant collection name (uses default if not provided)
+            return_raw: Whether to return raw Qdrant response format
+
+        Returns:
+            List of relevant documents (same format as Elasticsearch search)
+        """
+        # Use default collection if not provided
+        collection = collection_name or self.collection_name
+
+        # Convert course filter to string if provided
+        course_filter_str = course_filter.value if course_filter else None
+
+        # Execute the vector search
+        try:
+            qdrant_results = self.vector_searcher.search(
+                query=question,
+                collection_name=collection,
+                limit=num_results,
+                course_filter=course_filter_str,
+                score_threshold=score_threshold,
+                with_payload=True,
+            )
+
+            # Return document list format (same as Elasticsearch)
+            documents = [result["payload"] for result in qdrant_results if "payload" in result]
+            logger.debug(f"Vector search returned {len(documents)} results")
+            return documents
+
+        except Exception as e:
+            logger.error(f"Error in vector search: {e}")
+            raise
+
     def generate_response(
         self, question: str, documents: List[Dict[str, Any]], model: Optional[str] = None, include_context: bool = False
     ) -> Dict[str, Any]:
@@ -145,10 +209,13 @@ class RAGPipeline:
     def ask(
         self,
         question: str,
+        search_engine: str,
         course_filter: Optional[Course] = None,
         num_results: int = 5,
-        boost: int = 4,
-        model: Optional[str] = None,
+        llm: Optional[str] = None,
+        qdrant_collection_name: Optional[str] = None,
+        qdrant_score_threshold: Optional[float] = None,
+        elasticsearch_boost: int = 4,
         debug: bool = False,
     ) -> str:
         """Ask a question and get a response (end-to-end RAG).
@@ -164,15 +231,32 @@ class RAGPipeline:
         Returns:
             The generated response
         """
+        if search_engine == "elasticsearch":
+            search_result = self.search(
+                question=question, course_filter=course_filter, num_results=num_results, boost=elasticsearch_boost
+            )
+        elif search_engine == "qdrant":
+            search_result = self.search_vector(
+                question=question,
+                course_filter=course_filter,
+                num_results=num_results,
+                score_threshold=qdrant_score_threshold,
+                collection_name=qdrant_collection_name,
+            )
+        else:
+            raise ValueError(f"Invalid search engine: {search_engine}")
+
         try:
-            # Search for relevant documents
-            search_result = self.search(question=question, course_filter=course_filter, num_results=num_results, boost=boost)
-            if not isinstance(search_result, list):
-                raise ValueError("Expected list when return_raw=False")
             documents = search_result
 
+            # Ensure documents is always a list
+            if isinstance(documents, dict):
+                # If it's a dict (raw response), extract the documents
+                documents = [hit["_source"] for hit in documents.get("hits", {}).get("hits", [])]
+            # If it's not a dict, it should be a list based on the return type Union[List[Dict[str, Any]], Dict[str, Any]]
+
             # Generate response
-            result = self.generate_response(question=question, documents=documents, model=model, include_context=debug)
+            result = self.generate_response(question=question, documents=documents, model=llm, include_context=debug)
 
             if debug:
                 self._print_debug_info(question, documents, result, course_filter)
@@ -182,54 +266,6 @@ class RAGPipeline:
         except Exception as e:
             logger.error(f"Error in RAG pipeline: {e}")
             raise
-
-    def ask_with_details(
-        self,
-        question: str,
-        course_filter: Optional[Course] = None,
-        num_results: int = 5,
-        boost: int = 4,
-        model: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Ask a question and get detailed response information.
-
-        Args:
-            question: The question to ask
-            course_filter: Optional course filter
-            num_results: Number of search results to use
-            boost: Boost factor for question field
-            model: LLM model to use
-
-        Returns:
-            Dictionary with response and all details
-        """
-        # Search for relevant documents
-        search_raw = self.search(
-            question=question, course_filter=course_filter, num_results=num_results, boost=boost, return_raw=True
-        )
-
-        documents = [hit["_source"] for hit in search_raw["hits"]["hits"]]  # type: ignore[call-overload]
-
-        # Generate response with context
-        response_result = self.generate_response(question=question, documents=documents, model=model, include_context=True)
-
-        return {
-            "question": question,
-            "response": response_result["response"],
-            "search_results": {
-                "total_hits": search_raw["hits"]["total"]["value"],  # type: ignore[call-overload]
-                "max_score": search_raw["hits"]["max_score"],  # type: ignore[call-overload]
-                "documents": documents,
-            },
-            "context": response_result["context"],
-            "prompt": response_result["prompt"],
-            "metadata": {
-                "course_filter": course_filter.value if course_filter else None,
-                "num_results": num_results,
-                "boost": boost,
-                "model": model or self.llm_client.model,
-            },
-        }
 
     def _print_debug_info(
         self, question: str, documents: List[Dict[str, Any]], result: Dict[str, Any], course_filter: Optional[Course]
@@ -266,6 +302,10 @@ class RAGPipeline:
                     "document_count": doc_count,
                     "index_exists": self.es_client.index_exists(self.index_name),
                 },
+                "qdrant": {
+                    "collection_name": self.collection_name,
+                    "vector_searcher_available": self.vector_searcher is not None,
+                },
                 "documents": doc_stats,
                 "llm": {"model": self.llm_client.model},
             }
@@ -283,9 +323,15 @@ class RAGPipeline:
 
         try:
             # Check Elasticsearch
-            health["elasticsearch"] = self.es_client.index_exists(self.index_name)
+            health["elasticsearch"] = self.es_client.health_check()
         except Exception:
             health["elasticsearch"] = False
+
+        try:
+            # Check Qdrant/Vector Search
+            health["qdrant"] = self.vector_searcher is not None
+        except Exception:
+            health["qdrant"] = False
 
         try:
             # Check if documents are loaded

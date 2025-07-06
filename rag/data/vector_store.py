@@ -7,7 +7,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastembed import TextEmbedding
-from qdrant_client.models import Distance, PointStruct
+from qdrant_client.models import Distance, PayloadSchemaType, PointStruct
 
 from ..config import EMBEDDING_DIMENSIONALITY, EMBEDDING_MODEL
 from ..search.qdrant_client_custom import QdrantClientCustom
@@ -30,7 +30,7 @@ class VectorStoreLoader:
         self.embedding_model: Optional[TextEmbedding] = None
         self.qdrant_client = qdrant_client or QdrantClientCustom()
 
-    def _get_embedding_model(self) -> TextEmbedding:
+    def get_embedding_model(self) -> TextEmbedding:
         """Get or initialize the embedding model.
 
         Returns:
@@ -67,7 +67,7 @@ class VectorStoreLoader:
 
         try:
             logger.info(f"Generating embeddings for {len(documents)} documents")
-            embedding_model = self._get_embedding_model()
+            embedding_model = self.get_embedding_model()
 
             # Extract text for embedding
             texts = []
@@ -272,13 +272,165 @@ class QdrantVectorLoader:
                 documents=documents,
             )
 
+            # Create payload index on course field for optimized filtering
+            logger.info(f"Creating payload index for 'course' field in collection '{collection_name}'")
+            self.vector_store.qdrant_client.create_payload_index(
+                collection_name=collection_name,
+                field_name="course",
+                field_schema=PayloadSchemaType.KEYWORD,  # exact matching on string metadata fields
+            )
+
             return {
                 "collection_name": collection_name,
                 "documents_loaded": len(documents),
                 "points_uploaded": points_uploaded,
                 "course_filter": course_filter,
+                "payload_index_created": True,
             }
 
         except Exception as e:
             logger.error(f"Failed to setup collection '{collection_name}': {e}")
             raise RuntimeError(f"Collection setup failed: {e}") from e
+
+
+class VectorSearcher:
+    """Handles vector search operations with local embedding generation."""
+
+    def __init__(self, embedding_model: str = EMBEDDING_MODEL, qdrant_client: Optional[QdrantClientCustom] = None):
+        """Initialize the vector searcher.
+
+        Args:
+            embedding_model: Name of the embedding model to use
+            qdrant_client: Optional QdrantClientCustom instance. If None, creates a new one.
+        """
+        self.qdrant_client = qdrant_client or QdrantClientCustom()
+        self.vector_store = VectorStoreLoader(qdrant_client=self.qdrant_client)
+
+    def embed_query(self, query: str) -> List[float]:
+        """Generate embedding for a single query text.
+
+        Args:
+            query: Query text to embed
+
+        Returns:
+            Embedding vector for the query
+
+        Raises:
+            RuntimeError: If embedding generation fails
+        """
+        if not query or not query.strip():
+            raise ValueError("Query cannot be empty")
+
+        try:
+            logger.info(f"Generating embedding for query: {query[:50]}...")
+            embedding_model = self.vector_store.get_embedding_model()
+
+            # Generate embedding for the query
+            embedding_vector = list(embedding_model.embed([query]))[0]
+            # Handle both numpy arrays and lists
+            if hasattr(embedding_vector, "tolist"):
+                result: List[float] = embedding_vector.tolist()
+                return result
+            else:
+                result = list(embedding_vector)
+                return result
+
+        except Exception as e:
+            logger.error(f"Failed to generate embedding for query: {e}")
+            raise RuntimeError(f"Query embedding generation failed: {e}") from e
+
+    def search(
+        self,
+        query: str,
+        collection_name: str,
+        limit: int = 5,
+        course_filter: Optional[str] = None,
+        score_threshold: Optional[float] = None,
+        with_payload: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Search documents using text query (embeds query locally).
+
+        Args:
+            query: Text query to search for
+            collection_name: Collection name to search in
+            limit: Number of results to return
+            course_filter: Optional course to filter by
+            score_threshold: Minimum similarity score threshold
+            with_payload: Whether to include document payload in results
+
+        Returns:
+            List of search results with documents and scores
+
+        Raises:
+            RuntimeError: If search fails
+        """
+        try:
+            logger.info(f"Searching for query: '{query[:50]}...' in collection '{collection_name}'")
+
+            # Embed the query text locally
+            query_vector = self.embed_query(query)
+
+            # Perform vector search using the embedded query
+            results = self.qdrant_client.search_with_vector(
+                query_vector=query_vector,
+                collection_name=collection_name,
+                limit=limit,
+                course_filter=course_filter,
+                score_threshold=score_threshold,
+                with_payload=with_payload,
+            )
+
+            logger.info(f"Found {len(results)} results for query")
+            return results
+
+        except Exception as e:
+            logger.error(f"Failed to search with query '{query}': {e}")
+            raise RuntimeError(f"Search failed: {e}") from e
+
+    def search_with_vector(
+        self,
+        collection_name: str,
+        query_vector: List[float],
+        limit: int = 5,
+        course_filter: Optional[str] = None,
+        score_threshold: Optional[float] = None,
+        with_payload: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Search documents using pre-computed vector.
+
+        Args:
+            collection_name: Collection name to search in
+            query_vector: Pre-computed query vector
+            limit: Number of results to return
+            course_filter: Optional course to filter by
+            score_threshold: Minimum similarity score threshold
+            with_payload: Whether to include document payload in results
+
+        Returns:
+            List of search results with documents and scores
+
+        Raises:
+            RuntimeError: If search fails
+        """
+        if not query_vector:
+            raise ValueError("Query vector cannot be empty")
+
+        try:
+            logger.info(f"Searching with vector in collection '{collection_name}'")
+
+            # Perform vector search using the pre-computed vector
+            results = self.qdrant_client.search_with_vector(
+                query_vector=query_vector,
+                collection_name=collection_name,
+                limit=limit,
+                course_filter=course_filter,
+                score_threshold=score_threshold,
+                with_payload=with_payload,
+            )
+
+            logger.info(f"Found {len(results)} results for vector search")
+            return results
+
+        except Exception as e:
+            logger.error(f"Failed to search with vector: {e}")
+            raise RuntimeError(f"Search failed: {e}") from e

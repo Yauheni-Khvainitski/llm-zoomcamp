@@ -1,11 +1,11 @@
 """Qdrant client wrapper for RAG system."""
 
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PayloadSchemaType, VectorParams
 
 from ..config import QDRANT_URL
 
@@ -139,4 +139,100 @@ class QdrantClientCustom:
                 raise
         except Exception as e:
             logger.error(f"Error deleting collection '{collection_name}': {e}")
+            raise
+
+    def search_with_vector(
+        self,
+        query_vector: List[float],
+        collection_name: str,
+        limit: int = 5,
+        course_filter: Optional[str] = None,
+        score_threshold: Optional[float] = None,
+        with_payload: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Search documents in Qdrant using pre-computed vector.
+
+        Args:
+            query_vector: Pre-computed query vector for similarity search
+            collection_name: Collection name (REQUIRED)
+            limit: Number of results to return
+            course_filter: Optional course to filter by
+            score_threshold: Minimum similarity score threshold
+            with_payload: Whether to include document payload in results
+
+        Returns:
+            List of search results with documents and scores
+        """
+        try:
+            # Build filter if course is specified
+            query_filter = None
+            if course_filter:
+                query_filter = Filter(must=[FieldCondition(key="course", match=MatchValue(value=course_filter))])
+
+            # Perform vector search
+            logger.info(f"Searching in collection '{collection_name}' with limit {limit}")
+            response = self.qdrant.search(
+                collection_name=collection_name,
+                query_vector=query_vector,
+                query_filter=query_filter,
+                limit=limit,
+                score_threshold=score_threshold,
+                with_payload=with_payload,
+            )
+
+            # Format results
+            results = []
+            for point in response:
+                result: Dict[str, Any] = {
+                    "id": point.id,
+                    "score": point.score,
+                }
+                if with_payload and point.payload:
+                    result["payload"] = dict(point.payload)
+                results.append(result)
+
+            logger.info(f"Found {len(results)} results")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error searching documents: {e}")
+            raise
+
+    def create_payload_index(
+        self, collection_name: str, field_name: str, field_schema: PayloadSchemaType = PayloadSchemaType.KEYWORD
+    ) -> bool:
+        """Create a payload index for a specific field in a Qdrant collection.
+
+        Args:
+            collection_name: Name of the collection to create payload index for
+            field_name: Name of the payload field to index
+            field_schema: Schema type for the field (default: KEYWORD for exact matching)
+
+        Returns:
+            True if payload index was created successfully
+
+        Raises:
+            Exception: If index creation fails
+        """
+        try:
+            logger.info(f"Creating payload index for field '{field_name}' in collection '{collection_name}'")
+
+            self.qdrant.create_payload_index(
+                collection_name=collection_name,
+                field_name=field_name,
+                field_schema=field_schema,
+            )
+
+            logger.info(f"Successfully created payload index for field '{field_name}' in collection '{collection_name}'")
+            return True
+
+        except UnexpectedResponse as e:
+            if e.status_code == 409:
+                logger.info(f"Payload index for field '{field_name}' already exists in collection '{collection_name}'")
+                return True
+            else:
+                logger.error(f"Error creating payload index for field '{field_name}': {e}")
+                raise
+        except Exception as e:
+            logger.error(f"Error creating payload index for field '{field_name}': {e}")
             raise
