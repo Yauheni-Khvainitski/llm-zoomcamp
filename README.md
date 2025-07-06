@@ -254,7 +254,7 @@ The project includes comprehensive unit tests for all components, **including ne
 ### Running Tests
 
 ```bash
-# Run all tests (now 180+ tests including Qdrant, Vector Store, and VectorSearcher)
+# Run all tests (now 185 tests including Qdrant, Vector Store, and VectorSearcher)
 python -m pytest rag/tests/ -v
 
 # Run tests with coverage
@@ -390,14 +390,19 @@ pipeline = RAGPipeline()
 indexed_count = pipeline.setup_index()
 print(f"Indexed {indexed_count} documents")
 
-# Ask a question
-answer = pipeline.ask_question("How do I copy files to a Docker container?")
+# Ask a question using Elasticsearch (traditional keyword search)
+answer = pipeline.ask("How do I copy files to a Docker container?", search_engine="elasticsearch")
+print(answer)
+
+# Ask using Qdrant (semantic vector search)
+answer = pipeline.ask("How do I copy files to a Docker container?", search_engine="qdrant")
 print(answer)
 
 # Ask with course filtering
-answer = pipeline.ask_question(
+answer = pipeline.ask(
     "What is Docker?",
-    course_filter=Course.DATA_ENGINEERING_ZOOMCAMP
+    course_filter=Course.DATA_ENGINEERING_ZOOMCAMP,
+    search_engine="qdrant"  # Use vector search for better semantic matching
 )
 print(answer)
 ```
@@ -604,7 +609,7 @@ python example_usage.py
 - **✅ Vector Store Implementation**: Complete vector store functionality with VectorStoreLoader and QdrantVectorLoader
 - **✅ Security Updates**: Updated urllib3 to v2.5.0 to fix vulnerabilities  
 - **✅ Simplified Dependencies**: Removed Safety CLI for streamlined workflow
-- **✅ Enhanced Testing**: Added comprehensive Qdrant client and vector store tests (153 total tests)
+- **✅ Enhanced Testing**: Added comprehensive Qdrant client and vector store tests (185 total tests)
 - **✅ Code Quality**: Fixed docstring formatting and linting issues
 - **✅ Docker Support**: Added Qdrant service to docker-compose.yml
 - **✅ CI/CD Integration**: Added vector store integration tests to GitHub Actions
