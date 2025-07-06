@@ -183,7 +183,7 @@ class QdrantClientCustom:
             # Format results
             results = []
             for point in response:
-                result = {
+                result: Dict[str, Any] = {
                     "id": point.id,
                     "score": point.score,
                 }

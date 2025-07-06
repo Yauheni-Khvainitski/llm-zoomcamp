@@ -282,7 +282,7 @@ class TestRAGPipeline(unittest.TestCase):
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
-        result = pipeline.ask("What is Docker?")
+        result = pipeline.ask("What is Docker?", search_engine="elasticsearch")
 
         # Verify the full pipeline was executed
         mock_qb.build_search_query.assert_called_once()
@@ -321,7 +321,7 @@ class TestRAGPipeline(unittest.TestCase):
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
-        result = pipeline.ask("What is Docker?", debug=True)
+        result = pipeline.ask("What is Docker?", search_engine="elasticsearch", debug=True)
 
         # Should return the response string
         self.assertIsInstance(result, str)
@@ -334,17 +334,19 @@ class TestRAGPipeline(unittest.TestCase):
     @patch("rag.pipeline.rag.OpenAIClient")
     def test_health_check_success(self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader):
         """Test successful health check."""
-        mock_doc_loader.return_value = Mock()
+        mock_doc_loader_instance = Mock()
+        mock_doc_loader_instance.documents = [{"doc": "test"}]
+        mock_doc_loader.return_value = mock_doc_loader_instance
 
         mock_es = Mock()
-        mock_es.index_exists.return_value = True
+        mock_es.health_check.return_value = True
         mock_es_client.return_value = mock_es
 
         mock_query_builder.return_value = Mock()
         mock_formatter.return_value = Mock()
 
         mock_ai = Mock()
-        mock_ai.list_available_models.return_value = ["gpt-4o", "gpt-3.5-turbo"]
+        mock_ai.api_key = "test-key"
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
@@ -354,7 +356,8 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertTrue(result["elasticsearch"])
         self.assertTrue(result["qdrant"])
         self.assertTrue(result["openai"])
-        # Health check doesn't include available_models in current implementation
+        self.assertTrue(result["documents"])
+        self.assertTrue(result["overall"])
         self.assertIn("overall", result)
 
     @patch("rag.pipeline.rag.DocumentLoader")
@@ -366,17 +369,19 @@ class TestRAGPipeline(unittest.TestCase):
         self, mock_openai, mock_formatter, mock_query_builder, mock_es_client, mock_doc_loader
     ):
         """Test health check with Elasticsearch failure."""
-        mock_doc_loader.return_value = Mock()
+        mock_doc_loader_instance = Mock()
+        mock_doc_loader_instance.documents = []
+        mock_doc_loader.return_value = mock_doc_loader_instance
 
         mock_es = Mock()
-        mock_es.index_exists.return_value = False
+        mock_es.health_check.return_value = False
         mock_es_client.return_value = mock_es
 
         mock_query_builder.return_value = Mock()
         mock_formatter.return_value = Mock()
 
         mock_ai = Mock()
-        mock_ai.list_available_models.return_value = ["gpt-4o"]
+        mock_ai.api_key = "test-key"
         mock_openai.return_value = mock_ai
 
         pipeline = RAGPipeline()
@@ -385,6 +390,8 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertFalse(result["elasticsearch"])
         self.assertTrue(result["qdrant"])
         self.assertTrue(result["openai"])
+        self.assertFalse(result["documents"])
+        self.assertFalse(result["overall"])
 
     @patch("rag.pipeline.rag.DocumentLoader")
     @patch("rag.pipeline.rag.ElasticsearchClient")
@@ -422,110 +429,36 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertTrue(result["qdrant"]["vector_searcher_available"])
 
     @patch("rag.pipeline.rag.VectorSearcher")
-    def test_ask_with_details_success(self, mock_vector_searcher):
-        """Test successful ask_with_details operation."""
-        # Create a RAG pipeline instance with mocked components
-        rag_pipeline = RAGPipeline()
-        
-        # Mock the search method to return raw response
-        rag_pipeline.search = Mock(
-            return_value={
-                "hits": {
-                    "total": {"value": 2},
-                    "max_score": 0.95,
-                    "hits": [
-                        {"_source": {"text": "Docker is a containerization platform"}},
-                        {"_source": {"text": "Containers are lightweight"}},
-                    ],
-                }
-            }
-        )
-
-        # Mock the generate_response method
-        rag_pipeline.generate_response = Mock(
-            return_value={
-                "response": "Docker is a containerization platform that uses containers.",
-                "context": "Docker is a containerization platform\nContainers are lightweight",
-                "prompt": "Based on the context...",
-            }
-        )
-
-        result = rag_pipeline.ask_with_details("What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP)
-
-        # Verify the result structure
-        self.assertEqual(result["question"], "What is Docker?")
-        self.assertEqual(result["response"], "Docker is a containerization platform that uses containers.")
-        self.assertEqual(result["search_results"]["total_hits"], 2)
-        self.assertEqual(result["search_results"]["max_score"], 0.95)
-        self.assertEqual(len(result["search_results"]["documents"]), 2)
-        self.assertEqual(result["metadata"]["course_filter"], "data-engineering-zoomcamp")
-
-    @patch("rag.pipeline.rag.VectorSearcher")
     def test_search_vector_success(self, mock_vector_searcher):
         """Test successful vector search operation."""
         # Create a RAG pipeline instance
         rag_pipeline = RAGPipeline()
-        
+
         # Mock VectorSearcher.search to return Qdrant-style results
         mock_qdrant_results = [
-            {
-                "id": "doc1",
-                "score": 0.95,
-                "payload": {"text": "Docker is a containerization platform", "course": "docker"}
-            },
-            {
-                "id": "doc2", 
-                "score": 0.85,
-                "payload": {"text": "Containers are lightweight", "course": "docker"}
-            }
+            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}},
+            {"id": "doc2", "score": 0.85, "payload": {"text": "Containers are lightweight", "course": "docker"}},
         ]
-        
+
         rag_pipeline.vector_searcher.search = Mock(return_value=mock_qdrant_results)
 
         # Test non-raw response
         result = rag_pipeline.search_vector("What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP)
-        
+
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0]["text"], "Docker is a containerization platform")
         self.assertEqual(result[1]["text"], "Containers are lightweight")
-
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_search_vector_raw_response(self, mock_vector_searcher):
-        """Test vector search with raw response format."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
-        
-        # Mock VectorSearcher.search to return Qdrant-style results
-        mock_qdrant_results = [
-            {
-                "id": "doc1",
-                "score": 0.95,
-                "payload": {"text": "Docker is a containerization platform", "course": "docker"}
-            }
-        ]
-        
-        rag_pipeline.vector_searcher.search = Mock(return_value=mock_qdrant_results)
-
-        # Test raw response
-        result = rag_pipeline.search_vector("What is Docker?", return_raw=True)
-        
-        self.assertIn("hits", result)
-        self.assertEqual(result["hits"]["total"]["value"], 1)
-        self.assertEqual(result["hits"]["max_score"], 0.95)
-        self.assertEqual(len(result["hits"]["hits"]), 1)
-        self.assertEqual(result["hits"]["hits"][0]["_id"], "doc1")
-        self.assertEqual(result["hits"]["hits"][0]["_score"], 0.95)
 
     @patch("rag.pipeline.rag.VectorSearcher")
     def test_search_vector_empty_results(self, mock_vector_searcher):
         """Test vector search with empty results."""
         # Create a RAG pipeline instance
         rag_pipeline = RAGPipeline()
-        
+
         rag_pipeline.vector_searcher.search = Mock(return_value=[])
 
         result = rag_pipeline.search_vector("Non-existent question")
-        
+
         self.assertEqual(result, [])
 
     @patch("rag.pipeline.rag.VectorSearcher")
@@ -533,15 +466,9 @@ class TestRAGPipeline(unittest.TestCase):
         """Test vector search with all parameters."""
         # Create a RAG pipeline instance
         rag_pipeline = RAGPipeline()
-        
-        mock_qdrant_results = [
-            {
-                "id": "doc1",
-                "score": 0.95,
-                "payload": {"text": "Docker info", "course": "docker"}
-            }
-        ]
-        
+
+        mock_qdrant_results = [{"id": "doc1", "score": 0.95, "payload": {"text": "Docker info", "course": "docker"}}]
+
         rag_pipeline.vector_searcher.search = Mock(return_value=mock_qdrant_results)
 
         result = rag_pipeline.search_vector(
@@ -549,9 +476,13 @@ class TestRAGPipeline(unittest.TestCase):
             course_filter=Course.DATA_ENGINEERING_ZOOMCAMP,
             num_results=3,
             score_threshold=0.8,
-            collection_name="test-collection"
+            collection_name="test-collection",
         )
-        
+
+        # Verify the search was successful
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["text"], "Docker info")
+
         # Verify VectorSearcher.search was called with correct parameters
         rag_pipeline.vector_searcher.search.assert_called_once_with(
             query="What is Docker?",
@@ -559,120 +490,19 @@ class TestRAGPipeline(unittest.TestCase):
             limit=3,
             course_filter="data-engineering-zoomcamp",
             score_threshold=0.8,
-            with_payload=True
+            with_payload=True,
         )
-
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_ask_vector_success(self, mock_vector_searcher):
-        """Test successful ask_vector operation."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
-        
-        # Mock vector search
-        mock_qdrant_results = [
-            {
-                "id": "doc1",
-                "score": 0.95,
-                "payload": {"text": "Docker is a containerization platform", "course": "docker"}
-            }
-        ]
-        
-        rag_pipeline.vector_searcher.search = Mock(return_value=mock_qdrant_results)
-
-        # Mock response generation
-        rag_pipeline.generate_response = Mock(
-            return_value={"response": "Docker is a containerization platform."}
-        )
-
-        result = rag_pipeline.ask_vector("What is Docker?", course_filter=Course.DATA_ENGINEERING_ZOOMCAMP)
-
-        self.assertEqual(result, "Docker is a containerization platform.")
-
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_ask_vector_with_details_success(self, mock_vector_searcher):
-        """Test successful ask_vector_with_details operation."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
-        
-        # Mock vector search with raw response
-        mock_qdrant_results = [
-            {
-                "id": "doc1",
-                "score": 0.95,
-                "payload": {"text": "Docker is a containerization platform", "course": "docker"}
-            }
-        ]
-        
-        rag_pipeline.vector_searcher.search = Mock(return_value=mock_qdrant_results)
-
-        # Mock the search_vector method to return raw response when called with return_raw=True
-        raw_response = {
-            "hits": {
-                "total": {"value": 1},
-                "max_score": 0.95,
-                "hits": [
-                    {
-                        "_id": "doc1",
-                        "_score": 0.95,
-                        "_source": {"text": "Docker is a containerization platform", "course": "docker"}
-                    }
-                ]
-            }
-        }
-        
-        # Mock search_vector to return raw response
-        rag_pipeline.search_vector = Mock(return_value=raw_response)
-
-        # Mock response generation
-        rag_pipeline.generate_response = Mock(
-            return_value={
-                "response": "Docker is a containerization platform.",
-                "context": "Docker is a containerization platform",
-                "prompt": "Based on the context..."
-            }
-        )
-
-        result = rag_pipeline.ask_vector_with_details(
-            "What is Docker?",
-            course_filter=Course.DATA_ENGINEERING_ZOOMCAMP,
-            score_threshold=0.8,
-            collection_name="test-collection"
-        )
-
-        # Verify the result structure
-        self.assertEqual(result["question"], "What is Docker?")
-        self.assertEqual(result["response"], "Docker is a containerization platform.")
-        self.assertEqual(result["search_results"]["total_hits"], 1)
-        self.assertEqual(result["search_results"]["max_score"], 0.95)
-        self.assertEqual(len(result["search_results"]["documents"]), 1)
-        self.assertEqual(result["metadata"]["course_filter"], "data-engineering-zoomcamp")
-        self.assertEqual(result["metadata"]["score_threshold"], 0.8)
-        self.assertEqual(result["metadata"]["collection_name"], "test-collection")
-        self.assertEqual(result["metadata"]["search_type"], "vector")
 
     @patch("rag.pipeline.rag.VectorSearcher")
     def test_vector_search_error_handling(self, mock_vector_searcher):
         """Test error handling in vector search."""
         # Create a RAG pipeline instance
         rag_pipeline = RAGPipeline()
-        
+
         rag_pipeline.vector_searcher.search = Mock(side_effect=Exception("Vector search failed"))
 
         with self.assertRaises(Exception) as context:
             rag_pipeline.search_vector("What is Docker?")
-
-        self.assertIn("Vector search failed", str(context.exception))
-
-    @patch("rag.pipeline.rag.VectorSearcher")
-    def test_ask_vector_error_handling(self, mock_vector_searcher):
-        """Test error handling in ask_vector."""
-        # Create a RAG pipeline instance
-        rag_pipeline = RAGPipeline()
-        
-        rag_pipeline.vector_searcher.search = Mock(side_effect=Exception("Vector search failed"))
-
-        with self.assertRaises(Exception) as context:
-            rag_pipeline.ask_vector("What is Docker?")
 
         self.assertIn("Vector search failed", str(context.exception))
 

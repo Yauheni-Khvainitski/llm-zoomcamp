@@ -329,9 +329,11 @@ class VectorSearcher:
             embedding_vector = list(embedding_model.embed([query]))[0]
             # Handle both numpy arrays and lists
             if hasattr(embedding_vector, "tolist"):
-                return embedding_vector.tolist()
+                result: List[float] = embedding_vector.tolist()
+                return result
             else:
-                return embedding_vector
+                result = list(embedding_vector)
+                return result
 
         except Exception as e:
             logger.error(f"Failed to generate embedding for query: {e}")

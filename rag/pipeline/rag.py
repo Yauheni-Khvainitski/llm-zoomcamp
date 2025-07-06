@@ -6,7 +6,7 @@ Orchestrates document loading, indexing, searching, and response generation.
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from ..config import DEFAULT_INDEX_NAME, ELASTICSEARCH_URL, DEFAULT_COLLECTION_NAME
+from ..config import DEFAULT_COLLECTION_NAME, DEFAULT_INDEX_NAME, ELASTICSEARCH_URL
 from ..data.loader import DocumentLoader
 from ..data.vector_store import VectorSearcher
 from ..formatting.context import ContextFormatter
@@ -139,7 +139,7 @@ class RAGPipeline:
         """
         # Use default collection if not provided
         collection = collection_name or self.collection_name
-        
+
         # Convert course filter to string if provided
         course_filter_str = course_filter.value if course_filter else None
 
@@ -220,14 +220,28 @@ class RAGPipeline:
             The generated response
         """
         if search_engine == "elasticsearch":
-            search_result = self.search(question=question, course_filter=course_filter, num_results=num_results, boost=elasticsearch_boost)
+            search_result = self.search(
+                question=question, course_filter=course_filter, num_results=num_results, boost=elasticsearch_boost
+            )
         elif search_engine == "qdrant":
-            search_result = self.search_vector(question=question, course_filter=course_filter, num_results=num_results, score_threshold=qdrant_score_threshold, collection_name=qdrant_collection_name)
+            search_result = self.search_vector(
+                question=question,
+                course_filter=course_filter,
+                num_results=num_results,
+                score_threshold=qdrant_score_threshold,
+                collection_name=qdrant_collection_name,
+            )
         else:
             raise ValueError(f"Invalid search engine: {search_engine}")
 
         try:
             documents = search_result
+
+            # Ensure documents is always a list
+            if isinstance(documents, dict):
+                # If it's a dict (raw response), extract the documents
+                documents = [hit["_source"] for hit in documents.get("hits", {}).get("hits", [])]
+            # If it's not a dict, it should be a list based on the return type Union[List[Dict[str, Any]], Dict[str, Any]]
 
             # Generate response
             result = self.generate_response(question=question, documents=documents, model=llm, include_context=debug)
