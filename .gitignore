@@ -13,3 +13,7 @@ documents.json
 qdrant_storage/
 
 .coverage
+
+*.pkl
+
+*.json
