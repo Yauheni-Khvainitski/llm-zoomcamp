@@ -17,3 +17,5 @@ qdrant_storage/
 *.pkl
 
 *.json
+
+*.csv
