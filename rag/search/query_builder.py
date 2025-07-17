@@ -4,7 +4,7 @@ Handles building search queries with optional course filtering.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from ..config import DEFAULT_BOOST_FACTOR, DEFAULT_NUM_RESULTS
 from ..models.course import Course
@@ -28,7 +28,7 @@ class QueryBuilder:
     def build_search_query(
         self,
         question: str,
-        course_filter: Optional[Course] = None,
+        course_filter: Optional[Union[Course, str]] = None,
         num_results: Optional[int] = None,
         boost: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -36,7 +36,7 @@ class QueryBuilder:
 
         Args:
             question: The question to search for
-            course_filter: Optional course to filter by
+            course_filter: Optional course to filter by (Course enum or string)
             num_results: Number of results to return
             boost: Boost factor for the question field
 
@@ -56,11 +56,13 @@ class QueryBuilder:
 
         # Conditionally add the course filter
         if course_filter is not None:
+            # Handle both Course enum and string types
+            course_value = course_filter.value if isinstance(course_filter, Course) else course_filter
             search_query = {
                 "size": num_results,
-                "query": {"bool": {"must": query_structure, "filter": {"term": {"course": course_filter.value}}}},
+                "query": {"bool": {"must": query_structure, "filter": {"term": {"course": course_value}}}},
             }
-            logger.debug(f"Built query with course filter: {course_filter.value}")
+            logger.debug(f"Built query with course filter: {course_value}")
         else:
             # No course filter - search across all courses
             search_query = {"size": num_results, "query": query_structure}

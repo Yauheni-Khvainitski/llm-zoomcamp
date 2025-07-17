@@ -96,7 +96,7 @@ class RAGPipeline:  # pylint: disable=too-many-instance-attributes
     def search(
         self,
         question: str,
-        course_filter: Optional[Course] = None,
+        course_filter: Optional[Union[Course, str]] = None,
         num_results: int = 5,
         boost: int = 4,
         return_raw: bool = False,
@@ -131,7 +131,7 @@ class RAGPipeline:  # pylint: disable=too-many-instance-attributes
     def search_vector(
         self,
         question: str,
-        course_filter: Optional[Course] = None,
+        course_filter: Optional[Union[Course, str]] = None,
         num_results: int = 5,
         score_threshold: Optional[float] = None,
         collection_name: Optional[str] = None,
@@ -140,7 +140,7 @@ class RAGPipeline:  # pylint: disable=too-many-instance-attributes
 
         Args:
             question: The question to search for
-            course_filter: Optional course filter
+            course_filter: Optional course filter (Course enum or string)
             num_results: Number of results to return
             score_threshold: Minimum similarity score threshold
             collection_name: Qdrant collection name (uses default if not provided)
@@ -153,7 +153,7 @@ class RAGPipeline:  # pylint: disable=too-many-instance-attributes
         collection = collection_name or self.collection_name
 
         # Convert course filter to string if provided
-        course_filter_str = course_filter.value if course_filter else None
+        course_filter_str = course_filter.value if isinstance(course_filter, Course) else course_filter
 
         # Execute the vector search
         try:
