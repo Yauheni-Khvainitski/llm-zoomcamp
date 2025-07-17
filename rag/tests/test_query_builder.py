@@ -149,6 +149,71 @@ class TestQueryBuilder(unittest.TestCase):
         self.assertEqual(query["size"], 10)
         self.assertIn("question^2", query["query"]["multi_match"]["fields"])
 
+    def test_with_string_course_filter(self):
+        """Test build_search_query with a string course filter."""
+        query = self.query_builder.build_search_query(
+            question="How do I copy files to a Docker container?",
+            course_filter="machine-learning-zoomcamp",
+            num_results=3,
+            boost=4,
+        )
+
+        # Test basic structure
+        self.assertIsInstance(query, dict)
+        self.assertIn("size", query)
+        self.assertIn("query", query)
+
+        # Test size parameter
+        self.assertEqual(query["size"], 3)
+
+        # Test query structure with course filter
+        self.assertIn("bool", query["query"])
+        bool_query = query["query"]["bool"]
+
+        self.assertIn("must", bool_query)
+        self.assertIn("filter", bool_query)
+
+        # Test multi_match structure
+        multi_match = bool_query["must"]["multi_match"]
+        self.assertEqual(multi_match["query"], "How do I copy files to a Docker container?")
+        self.assertIn("question^4", multi_match["fields"])
+        self.assertIn("text", multi_match["fields"])
+        self.assertIn("section", multi_match["fields"])
+        self.assertEqual(multi_match["type"], "best_fields")
+
+        # Test course filter - should use string value directly
+        course_filter = bool_query["filter"]["term"]
+        self.assertEqual(course_filter["course"], "machine-learning-zoomcamp")
+
+    def test_different_string_courses(self):
+        """Test build_search_query with different string course values."""
+        courses_to_test = [
+            "data-engineering-zoomcamp",
+            "machine-learning-zoomcamp",
+            "mlops-zoomcamp",
+            "llm-zoomcamp",
+        ]
+
+        for course_string in courses_to_test:
+            query = self.query_builder.build_search_query(question="Test question", course_filter=course_string)
+
+            # Test that the correct course value is used
+            actual_course = query["query"]["bool"]["filter"]["term"]["course"]
+            self.assertEqual(actual_course, course_string)
+
+    def test_course_filter_enum_vs_string_equivalence(self):
+        """Test that Course enum and equivalent string produce the same query."""
+        question = "Test question"
+
+        # Query with Course enum
+        query_enum = self.query_builder.build_search_query(question=question, course_filter=Course.MACHINE_LEARNING_ZOOMCAMP)
+
+        # Query with equivalent string
+        query_string = self.query_builder.build_search_query(question=question, course_filter="machine-learning-zoomcamp")
+
+        # Both should produce identical queries
+        self.assertEqual(query_enum, query_string)
+
 
 def run_tests():
     """

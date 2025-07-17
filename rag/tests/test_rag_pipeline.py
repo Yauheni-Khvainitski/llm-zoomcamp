@@ -153,6 +153,25 @@ class TestRAGPipeline(unittest.TestCase):
         )
         self.assertEqual(result, self.sample_documents)
 
+    def test_search_with_string_course_filter(self):
+        """Test search with string course filter."""
+        mock_es = Mock()
+        mock_es.search_documents.return_value = self.sample_documents
+
+        mock_qb = Mock()
+        mock_query = {"test": "query"}
+        mock_qb.build_search_query.return_value = mock_query
+
+        pipeline = self.create_mocked_pipeline(es_client=mock_es, query_builder=mock_qb)
+
+        result = pipeline.search("What is Docker?", course_filter="data-engineering-zoomcamp")
+
+        # Verify that string course filter is passed correctly to query builder
+        mock_qb.build_search_query.assert_called_once_with(
+            question="What is Docker?", course_filter="data-engineering-zoomcamp", num_results=5, boost=4
+        )
+        self.assertEqual(result, self.sample_documents)
+
     def test_generate_answer_success(self):
         """Test successful answer generation."""
         mock_fmt = Mock()
@@ -454,6 +473,81 @@ class TestRAGPipeline(unittest.TestCase):
         # Verify result
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["text"], "Docker is a containerization platform")
+
+    def test_search_vector_with_string_course_filter(self):
+        """Test vector search with string course filter."""
+        mock_qdrant_results = [
+            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}}
+        ]
+
+        mock_vector_searcher = Mock()
+        mock_vector_searcher.search.return_value = mock_qdrant_results
+
+        pipeline = self.create_mocked_pipeline(vector_searcher=mock_vector_searcher)
+
+        result = pipeline.search_vector(
+            question="What is Docker?",
+            course_filter="data-engineering-zoomcamp",
+            num_results=3,
+            score_threshold=0.8,
+            collection_name="test-collection",
+        )
+
+        # Verify VectorSearcher.search was called with correct parameters
+        mock_vector_searcher.search.assert_called_once_with(
+            query="What is Docker?",
+            collection_name="test-collection",
+            limit=3,
+            course_filter="data-engineering-zoomcamp",
+            score_threshold=0.8,
+            with_payload=True,
+        )
+
+        # Verify result
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["text"], "Docker is a containerization platform")
+
+    def test_search_vector_course_filter_equivalence(self):
+        """Test that Course enum and string produce equivalent vector search results."""
+        mock_qdrant_results = [
+            {"id": "doc1", "score": 0.95, "payload": {"text": "Docker is a containerization platform", "course": "docker"}}
+        ]
+
+        mock_vector_searcher_enum = Mock()
+        mock_vector_searcher_enum.search.return_value = mock_qdrant_results
+
+        mock_vector_searcher_string = Mock()
+        mock_vector_searcher_string.search.return_value = mock_qdrant_results
+
+        # Test with Course enum
+        pipeline_enum = self.create_mocked_pipeline(vector_searcher=mock_vector_searcher_enum)
+        result_enum = pipeline_enum.search_vector(
+            question="What is Docker?",
+            course_filter=Course.MACHINE_LEARNING_ZOOMCAMP,
+            num_results=3,
+        )
+
+        # Test with equivalent string
+        pipeline_string = self.create_mocked_pipeline(vector_searcher=mock_vector_searcher_string)
+        result_string = pipeline_string.search_vector(
+            question="What is Docker?",
+            course_filter="machine-learning-zoomcamp",
+            num_results=3,
+        )
+
+        # Both should call vector searcher with the same course_filter string
+        mock_vector_searcher_enum.search.assert_called_once()
+        mock_vector_searcher_string.search.assert_called_once()
+
+        enum_call_args = mock_vector_searcher_enum.search.call_args
+        string_call_args = mock_vector_searcher_string.search.call_args
+
+        # Verify both calls used the same string course filter
+        self.assertEqual(enum_call_args[1]["course_filter"], "machine-learning-zoomcamp")
+        self.assertEqual(string_call_args[1]["course_filter"], "machine-learning-zoomcamp")
+
+        # Results should be identical
+        self.assertEqual(result_enum, result_string)
 
     def test_vector_search_error_handling(self):
         """Test error handling in vector search."""
